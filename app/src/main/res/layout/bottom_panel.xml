@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="400dp">
+
+    <LinearLayout
+        android:id="@+id/swipe_bar"
+        android:layout_width="0dp"
+        android:layout_height="67dp"
+        android:orientation="horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="Song title"
+                android:textAppearance="@style/TextAppearance.AppCompat.Body2"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tv_artist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="Artist"
+                android:textAppearance="@style/TextAppearance.AppCompat.Body1"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_requested_by"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="Requested by XY"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:layout_marginEnd="8dp">
+
+            <com.mikhaellopez.circularprogressbar.CircularProgressBar
+                android:id="@+id/circularProgressBar"
+                android:layout_width="35dp"
+                android:layout_height="35dp"
+                app:cpb_background_progressbar_color="#33000000"
+                app:cpb_background_progressbar_width="1dp"
+                app:cpb_progress_direction="to_right"
+                app:cpb_progressbar_color="@color/colorAccent"
+                app:cpb_progressbar_width="2dp"
+                app:cpb_progress="33"
+                app:cpb_progress_max="100"
+                app:cpb_round_border="false" />
+
+            <ImageButton
+                android:id="@+id/ib_control"
+                android:layout_width="35dp"
+                android:layout_height="35dp"
+                android:background="@drawable/control_bg"
+                android:clickable="true"
+                android:focusable="true"
+                app:srcCompat="@drawable/ic_round_play_arrow_24" />
+        </FrameLayout>
+
+        <ImageButton
+            android:id="@+id/ib_skip"
+            android:layout_width="35dp"
+            android:layout_height="35dp"
+            android:background="@drawable/control_bg"
+            android:layout_gravity="center_vertical"
+            android:layout_marginEnd="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:srcCompat="@drawable/ic_round_skip_next_24" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/textView8"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="epic empty space"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/swipe_bar" />
+</androidx.constraintlayout.widget.ConstraintLayout>
