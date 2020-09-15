@@ -75,6 +75,7 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
         slidingLayout.addPanelSlideListener(new SlidingUpPanelLayout.PanelSlideListener() {
             @Override
             public void onPanelSlide(View panel, float slideOffset) {
+                slideOffset = Math.max(slideOffset, 0);
                 navView.setTranslationY((slideOffset / 0.5f) * navViewMeasuredHeight);
             }
 
@@ -94,7 +95,7 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
 
         lobby = coordinatorService.getActiveLobby();
         lobby.addEventListener(this);
-        updateMiniPlayer();
+        slidingLayout.post(this::updateMiniPlayer);
 
         circularProgressBar.setProgressMax(1);
         Executors.newSingleThreadExecutor().submit(() -> {
@@ -112,8 +113,10 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
         });
 
         coordinatorService.registerDisconnectHandler(lobbyCoordinatorService -> {
-            startActivity(new Intent(this, ConnectActivity.class));
-            finish();
+            if (active) {
+                startActivity(new Intent(this, ConnectActivity.class));
+                finish();
+            }
         });
     }
 
@@ -122,6 +125,10 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
             tvTitle.setVisibility(View.GONE);
             tvArtist.setVisibility(View.GONE);
             tvRequestedBy.setVisibility(View.GONE);
+
+            if (slidingLayout.getPanelState() != SlidingUpPanelLayout.PanelState.HIDDEN) {
+                slidingLayout.setPanelState(SlidingUpPanelLayout.PanelState.HIDDEN);
+            }
         } else {
             RemoteMedia nowPlaying = lobby.getLooper().getCurrentQueue().getCurrentlyPlaying();
 
@@ -132,6 +139,10 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
             tvTitle.setVisibility(View.VISIBLE);
             tvArtist.setVisibility(View.VISIBLE);
             tvRequestedBy.setVisibility(View.VISIBLE);
+
+            if (slidingLayout.getPanelState() == SlidingUpPanelLayout.PanelState.HIDDEN) {
+                slidingLayout.setPanelState(SlidingUpPanelLayout.PanelState.COLLAPSED);
+            }
         }
 
         boolean hasPermissions = Lobby.checkPermission(lobby.getClient(), LobbyMember.PERMISSION_MANAGE_QUEUE);
@@ -163,6 +174,20 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.main, menu);
         return super.onCreateOptionsMenu(menu);
+    }
+
+    private boolean active = false;
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        active = true;
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        active = false;
     }
 
     @Override

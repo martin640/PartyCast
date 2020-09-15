@@ -77,7 +77,7 @@ public class LocalLibraryProvider implements LibraryProvider, JSONable {
         try {
             this.imageServer.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to start image provider server", e);
+            this.lobby.internalShutdown(e);
         }
         refresh(null);
     }

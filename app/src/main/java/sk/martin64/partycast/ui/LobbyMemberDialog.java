@@ -4,7 +4,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageButton;
+import android.widget.Button;
 import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
@@ -26,7 +26,7 @@ public class LobbyMemberDialog extends BottomSheetDialogFragment {
     @BindView(R.id.imageView)
     ImageView imageView;
     @BindView(R.id.imageButton)
-    ImageButton imageButton;
+    Button imageButton;
     @BindView(R.id.input_name)
     TextInputLayout inputName;
     @BindView(R.id.switch1)

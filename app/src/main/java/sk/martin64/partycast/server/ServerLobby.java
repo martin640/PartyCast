@@ -15,6 +15,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -33,16 +34,16 @@ import sk.martin64.partycast.utils.Callback;
 public class ServerLobby implements Lobby, JSONable {
 
     /**
-     * Determines whether server should cache username by IP address.
+     * Determines whether server should cache user data by IP address.
      * This should be false in public server.
      */
-    public static final boolean FLAG_NAME_CACHE = true;
+    public static final boolean FLAG_USER_CACHE = true;
 
     private WebSocketServer socketServer;
     private String title;
     private List<ServerLobbyMember> members;
     private Map<WebSocket, ServerLobbyMember> memberMap;
-    private Map<String, String> nameCache;
+    private Map<String, ServerLobbyMember> userCache;
     private ServerLobbyMember server;
 
     private ServerQueueLooper looper;
@@ -71,7 +72,7 @@ public class ServerLobby implements Lobby, JSONable {
         this.title = title;
         this.members = new ArrayList<>();
         this.memberMap = new HashMap<>();
-        this.nameCache = new HashMap<>();
+        this.userCache = new HashMap<>();
         this.listenersUnsafe = new ArrayList<>();
         this.listenersUnsafe.add(listener);
         this.localLibraryItemMap = new HashMap<>();
@@ -103,46 +104,68 @@ public class ServerLobby implements Lobby, JSONable {
         this.looper = new ServerQueueLooper(this);
 
         InetSocketAddress socketAddress = new InetSocketAddress(port);
-        this.server = new ServerLobbyMember("Admin", ++memberIdPool, LobbyMember.PERMISSION_HOST, "Server", null, this);
+        this.server = new ServerLobbyMember("Admin", ++memberIdPool, LobbyMember.PERMISSION_HOST, "Server", null, this) {
+            @Override
+            void changePermissionsInternally(int permissions) {
+                // disallow changing permissions for admin
+            }
+        };
         this.members.add(this.server);
 
         this.state = STATE_CONNECTING;
         socketServer = new WebSocketServer(socketAddress) {
             @Override
             public void onOpen(WebSocket conn, ClientHandshake handshake) {
-                String newName = handshake.getFieldValue("PartyCast-Username");
+                ServerLobbyMember newMember;
 
-                if (TextUtils.isEmpty(newName) && FLAG_NAME_CACHE)
-                    newName = nameCache.get(conn.getRemoteSocketAddress().getAddress().getHostAddress());
+                if (FLAG_USER_CACHE) {
+                    newMember = userCache.get(conn.getRemoteSocketAddress().getAddress().getHostAddress());
+                    if (newMember != null) {
+                        if (members.contains(newMember)) {
+                            conn.send("Connect failed: IP already connected");
+                            conn.close(4, "IP already connected");
+                            return;
+                        }
 
-                if (TextUtils.isEmpty(newName))
-                    newName = conn.getRemoteSocketAddress().getAddress().getHostName();
-
-                if (TextUtils.isEmpty(newName))
-                    newName = conn.getRemoteSocketAddress().getAddress().getHostAddress();
-
-                if (TextUtils.isEmpty(newName))  {
-                    conn.send("Connect failed: Invalid name provided");
-                    conn.close(4, "Invalid name provided");
-                    return;
-                }
-
-                for (ServerLobbyMember member : members) {
-                    if (Objects.equals(member.getName(), newName)) {
-                        conn.send("Connect failed: Username is already in use");
-                        conn.close(5, "Username is already in use");
-                        return;
+                        newMember.connection = conn;
                     }
                 }
 
-                if (FLAG_NAME_CACHE) nameCache.put(conn.getRemoteSocketAddress().getAddress().getHostAddress(), newName);
-                ServerLobbyMember newMember = new ServerLobbyMember(newName, ++memberIdPool,
-                        Objects.equals(conn.getRemoteSocketAddress().getAddress().getHostAddress(), "127.0.0.1") ? LobbyMember.PERMISSIONS_MOD : LobbyMember.PERMISSIONS_DEFAULT,
-                        handshake.getFieldValue("User-Agent"), conn, ServerLobby.this);
+                if (newMember == null) {
+                    String newName = handshake.getFieldValue("PartyCast-Username");
+
+                    if (TextUtils.isEmpty(newName))
+                        newName = conn.getRemoteSocketAddress().getAddress().getHostName();
+
+                    if (TextUtils.isEmpty(newName))
+                        newName = conn.getRemoteSocketAddress().getAddress().getHostAddress();
+
+                    if (TextUtils.isEmpty(newName))  {
+                        conn.send("Connect failed: Invalid name provided");
+                        conn.close(4, "Invalid name provided");
+                        return;
+                    }
+
+                    for (ServerLobbyMember member : members) {
+                        if (Objects.equals(member.getName(), newName)) {
+                            conn.send("Connect failed: Username is already in use");
+                            conn.close(5, "Username is already in use");
+                            return;
+                        }
+                    }
+
+                    newMember = new ServerLobbyMember(newName, ++memberIdPool, LobbyMember.PERMISSIONS_DEFAULT,
+                            handshake.getFieldValue("User-Agent"), conn, ServerLobby.this);
+                }
+
                 // acknowledge existing users before pushing new member to list
                 broadcastEvent("Event.USER_JOINED", newMember);
                 members.add(newMember);
                 memberMap.put(conn, newMember);
+
+                if (FLAG_USER_CACHE)
+                    userCache.put(conn.getRemoteSocketAddress().getAddress().getHostAddress(), newMember);
+
                 // push all data to new client
                 sendEvent(newMember, "LobbyCtl.DATA_PUSH", ServerLobby.this);
 
@@ -225,11 +248,7 @@ public class ServerLobby implements Lobby, JSONable {
                 ex.printStackTrace();
 
                 if (conn == null) { // exception on server level
-                    player.stop(true);
-                    state = STATE_CLOSED;
-
-                    for (LobbyEventListener l : safeListenersCopy())
-                        l.onError(ServerLobby.this, ex);
+                    internalShutdown(ex);
                 }
             }
 
@@ -243,6 +262,21 @@ public class ServerLobby implements Lobby, JSONable {
             }
         };
         socketServer.start();
+    }
+
+    void internalShutdown(Exception reason) {
+        try {
+            socketServer.stop();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        player.stop(true);
+        state = STATE_CLOSED;
+
+        for (LobbyEventListener l : safeListenersCopy())
+            l.onError(ServerLobby.this, reason);
     }
 
     void sendEvent(ServerLobbyMember member, String type, JSONable data) {
@@ -333,7 +367,6 @@ public class ServerLobby implements Lobby, JSONable {
             }
         }
 
-        if (FLAG_NAME_CACHE) nameCache.put(user.getAddress().getHostAddress(), newName);
         user.changeNameInternally(newName);
         conn.send(new JSONObject()
                 .put("id", messageId)
@@ -362,9 +395,6 @@ public class ServerLobby implements Lobby, JSONable {
                     return;
                 }
             }
-
-            if (FLAG_NAME_CACHE && user.getAddress() != null)
-                nameCache.put(user.getAddress().getHostAddress(), newName);
 
             user.changeName(newName, null);
             conn.send(new JSONObject()
@@ -402,16 +432,7 @@ public class ServerLobby implements Lobby, JSONable {
     }
 
     public void stop() {
-        player.stop(true);
-
-        try {
-            socketServer.stop(1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        for (LobbyEventListener l : safeListenersCopy())
-            l.onDisconnect(this, 0, "");
+        internalShutdown(new Exception("External stop request"));
     }
 
     @Override

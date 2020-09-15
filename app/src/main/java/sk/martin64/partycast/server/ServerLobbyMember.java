@@ -15,7 +15,7 @@ public class ServerLobbyMember implements LobbyMember, JSONable {
 
     private String name, agent;
     private int id, permissions;
-    private WebSocket connection;
+    WebSocket connection;
     private ServerLobby lobby;
 
     ServerLobbyMember(String name, int id, int permissions, String agent, WebSocket connection, ServerLobby lobby) {

@@ -3,6 +3,8 @@ package sk.martin64.partycast.ui;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
+import android.text.style.ForegroundColorSpan;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -11,12 +13,18 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.DefaultItemAnimator;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -26,6 +34,7 @@ import sk.martin64.partycast.core.LibraryItem;
 import sk.martin64.partycast.core.LibraryProvider;
 import sk.martin64.partycast.core.Lobby;
 import sk.martin64.partycast.core.LobbyEventListener;
+import sk.martin64.partycast.server.LocalLibraryItem;
 import sk.martin64.partycast.utils.Callback;
 import sk.martin64.partycast.utils.LobbyCoordinatorService;
 
@@ -119,9 +128,34 @@ public class LibraryFragment extends Fragment implements LobbyEventListener {
                 lobby.getLooper().enqueue(media, new Callback<Void>() {
                     @Override
                     public void onError(Exception e) {
-                        new Handler(Looper.getMainLooper()).post(() ->
-                                Toast.makeText(v.getContext(), "Error: " + e.getMessage(),
-                                        Toast.LENGTH_SHORT).show());
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        e.printStackTrace(new PrintStream(baos));
+                        String stackTrace = new String(baos.toByteArray(), StandardCharsets.UTF_8);
+
+                        String uri = "N/A", path = "N/A";
+                        boolean fileExists = false;
+                        if (media instanceof LocalLibraryItem) {
+                            LocalLibraryItem i = (LocalLibraryItem) media;
+                            path = i.getPath();
+                            fileExists = new File(path).exists();
+                            if (i.getUri() != null)
+                                uri = i.getUri().toString();
+                        }
+
+                        String finalPath = path;
+                        String finalUri = uri;
+                        boolean finalFileExists = fileExists;
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            AlertDialog.Builder builder = new AlertDialog.Builder(holder.imageView.getContext());
+                            builder.setTitle("Exception thrown while requesting media");
+                            builder.setMessage(TextUtils.concat(
+                                    "LibraryItem path: ", UiHelper.span(finalPath, new ForegroundColorSpan(0x66000000)),
+                                    "\nLibraryItem path exists: ", UiHelper.span(Boolean.toString(finalFileExists), new ForegroundColorSpan(0x66000000)),
+                                    "\nLibraryItem image uri: ", UiHelper.span(finalUri, new ForegroundColorSpan(0x66000000)),
+                                    "\n\nException:\n\n", stackTrace));
+                            builder.setPositiveButton("OK", (dialog, which) -> dialog.dismiss());
+                            builder.show();
+                        });
                     }
 
                     @Override

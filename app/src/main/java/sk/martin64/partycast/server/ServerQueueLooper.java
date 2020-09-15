@@ -43,53 +43,58 @@ public class ServerQueueLooper implements QueueLooper, JSONable {
     void enqueueByMember(LocalLibraryItem item, ServerLobbyMember member, Callback<Void> callback) {
         Executors.newSingleThreadExecutor().submit(() -> {
             synchronized (lock) {
-                MediaMetadataRetriever metaRetriever = new MediaMetadataRetriever();
-                metaRetriever.setDataSource(item.path);
+                try {
+                    MediaMetadataRetriever metaRetriever = new MediaMetadataRetriever();
+                    metaRetriever.setDataSource(item.path);
 
-                @SuppressWarnings("ConstantConditions")
-                long dur = Long.parseLong(metaRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION));
-                String title = metaRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE);
-                String artist = metaRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST);
+                    @SuppressWarnings("ConstantConditions")
+                    long dur = Long.parseLong(metaRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION));
+                    String title = metaRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE);
+                    String artist = metaRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST);
 
-                ServerQueue queue;
-                if (rounds.size() == 0) {
-                    queue = new ServerQueue(this);
-                    queue.id = 0;
-                    rounds.add(queue);
-                    currentRound = 0;
-                } else {
-                    int r = currentRound;
-                    AL: while (true) {
-                        if (r >= rounds.size()) {
-                            queue = new ServerQueue(this);
-                            rounds.add(queue);
-                            queue.id = rounds.indexOf(queue);
-                        } else {
-                            queue = rounds.get(r);
+                    ServerQueue queue;
+                    if (rounds.size() == 0) {
+                        queue = new ServerQueue(this);
+                        queue.id = 0;
+                        rounds.add(queue);
+                        currentRound = 0;
+                    } else {
+                        int r = currentRound;
+                        AL: while (true) {
+                            if (r >= rounds.size()) {
+                                queue = new ServerQueue(this);
+                                rounds.add(queue);
+                                queue.id = rounds.indexOf(queue);
+                            } else {
+                                queue = rounds.get(r);
 
-                            for (ServerLocalAudioFileRef a : queue.mediaQueue) {
-                                if (a.getRequester().getId() == member.getId()) {
-                                    r++;
-                                    continue AL; // member already queued song in this round, move to next
+                                for (ServerLocalAudioFileRef a : queue.mediaQueue) {
+                                    if (a.getRequester().getId() == member.getId()) {
+                                        r++;
+                                        continue AL; // member already queued song in this round, move to next
+                                    }
                                 }
                             }
+                            break;
                         }
-                        break;
                     }
-                }
 
-                ServerLocalAudioFileRef ref = new ServerLocalAudioFileRef(member, new File(item.path), dur, title, artist, queue);
-                queue.mediaQueue.add(ref);
-                ref.id = queue.mediaQueue.indexOf(ref);
+                    ServerLocalAudioFileRef ref = new ServerLocalAudioFileRef(member, new File(item.path), dur, title, artist, queue);
+                    queue.mediaQueue.add(ref);
+                    ref.id = queue.mediaQueue.indexOf(ref);
 
-                metaRetriever.release();
+                    metaRetriever.release();
 
-                callback.onSuccess(null);
+                    callback.onSuccess(null);
 
-                if (lobby.playbackState == Lobby.PLAYBACK_READY) {
-                    skip(null);
-                } else {
-                    broadcastQueueUpdate();
+                    if (lobby.playbackState == Lobby.PLAYBACK_READY) {
+                        skip(null);
+                    } else {
+                        broadcastQueueUpdate();
+                    }
+                } catch (Exception e) {
+                    if (callback != null)
+                        callback.onError(e);
                 }
             }
         });
@@ -149,6 +154,18 @@ public class ServerQueueLooper implements QueueLooper, JSONable {
     @Override
     public void skip(Callback<QueueLooper> callback) {
         synchronized (lock) {
+            if (lobby.playbackState == Lobby.PLAYBACK_PLAYING) {
+                lobby.player.setPlayWhenReady(false);
+                lobby.playbackState = Lobby.PLAYBACK_READY;
+            }
+
+            if (currentRound < 0) { // nothing has been queued yet
+                if (callback != null) callback.onError(new Exception("No more songs in queue"));
+                broadcastLobbyUpdate();
+
+                return;
+            }
+
             ServerQueue currentQueue = rounds.get(currentRound);
             int nextId = currentQueue.playingIndex + 1;
             if (nextId >= currentQueue.mediaQueue.size()) { // move to next queue
@@ -159,7 +176,7 @@ public class ServerQueueLooper implements QueueLooper, JSONable {
                     currentQueue = new ServerQueue(this);
                     currentQueue.id = currentRound;
                     rounds.add(currentQueue);
-                    lobby.playbackState = Lobby.PLAYBACK_READY;
+
                     if (callback != null) callback.onError(new Exception("No more songs in queue"));
                     broadcastLobbyUpdate();
 
@@ -177,6 +194,7 @@ public class ServerQueueLooper implements QueueLooper, JSONable {
 
             MediaSource mediaSource = new ProgressiveMediaSource.Factory(lobby.dataSourceFactory)
                     .createMediaSource(Uri.fromFile(nextSong.getFile()));
+            lobby.player.setPlayWhenReady(true);
             lobby.player.prepare(mediaSource);
             nextSong.start = System.currentTimeMillis();
             nextSong.lastKnownProgress = 0;

@@ -24,6 +24,14 @@ public class LocalLibraryItem implements LibraryItem, JSONable {
         this.provider = provider;
     }
 
+    public Uri getUri() {
+        return uri;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
     @Override
     public int getUniqueId() {
         return id;

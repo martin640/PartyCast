@@ -57,8 +57,11 @@ public class ServerLobbyService extends Service implements LobbyEventListener {
     }
 
     public static String pickName() {
-        BluetoothAdapter myDevice = BluetoothAdapter.getDefaultAdapter();
-        String serverName = myDevice.getName();
+        String serverName = null;
+        try {
+            BluetoothAdapter myDevice = BluetoothAdapter.getDefaultAdapter();
+            serverName = myDevice.getName();
+        } catch (Exception e) { }
 
         if (TextUtils.isEmpty(serverName)) serverName = Build.MODEL;
 

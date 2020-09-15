@@ -11,8 +11,8 @@
       "type": "SINGLE",
       "filters": [],
       "properties": [],
-      "versionCode": 1,
-      "versionName": "1.0",
+      "versionCode": 11,
+      "versionName": "1.0.10-hotfix1",
       "enabled": true,
       "outputFile": "app-release.apk"
     }
