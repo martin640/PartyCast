@@ -8,15 +8,28 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
 
+import org.java_websocket.WebSocket;
+import org.java_websocket.client.WebSocketClient;
+import org.java_websocket.exceptions.InvalidDataException;
+import org.java_websocket.handshake.ClientHandshake;
+import org.java_websocket.handshake.ServerHandshake;
+
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 
+import sk.martin64.partycast.BuildConfig;
 import sk.martin64.partycast.ClientLobbyService;
 import sk.martin64.partycast.ServerLobbyService;
+import sk.martin64.partycast.core.LibraryProvider;
 import sk.martin64.partycast.core.Lobby;
 import sk.martin64.partycast.core.LobbyEventListener;
+import sk.martin64.partycast.core.LobbyMember;
+import sk.martin64.partycast.core.QueueLooper;
 
 import static android.content.Context.BIND_AUTO_CREATE;
+import static sk.martin64.partycast.client.ClientLobby.VERSION_NAME;
 
 public class LobbyCoordinatorService implements LobbyEventListener {
 
@@ -43,6 +56,42 @@ public class LobbyCoordinatorService implements LobbyEventListener {
 
     public int getState() {
         return state;
+    }
+
+    /**
+     * Get lobby status without making permanent connection
+     */
+    public void head(Activity activity, String server, Callback<Lobby> callback) {
+        try {
+            WebSocketClient client = new WebSocketClient(new URI(String.format("ws://%s:%s", server, ServerLobbyService.SERVER_PORT))) {
+                @Override
+                public void onOpen(ServerHandshake handshakedata) {}
+
+                @Override
+                public void onMessage(String message) {}
+
+                @Override
+                public void onWebsocketHandshakeReceivedAsClient(WebSocket conn, ClientHandshake request, ServerHandshake response) throws InvalidDataException {
+                    String lobbyTitle = response.getFieldValue("PartyCast-Lobby-Name");
+                    conn.close();
+
+                    callback.onSuccess(new AbstractHeadLobby(lobbyTitle, new ArrayList<>(), null));
+                }
+
+                @Override
+                public void onClose(int code, String reason, boolean remote) { }
+
+                @Override
+                public void onError(Exception ex) {
+                    callback.onError(ex);
+                }
+            };
+            client.removeHeader("User-Agent");
+            client.addHeader("User-Agent", String.format("PartyCast/%s ClientLobby/%s", BuildConfig.VERSION_NAME, VERSION_NAME));
+            client.connect();
+        } catch (URISyntaxException e) {
+            callback.onError(e);
+        }
     }
 
     public void connectClient(Activity activity, String server, String username, Callback<Lobby> callback) {
@@ -217,5 +266,69 @@ public class LobbyCoordinatorService implements LobbyEventListener {
             }
         }
         return false;
+    }
+
+    private static class AbstractHeadLobby implements Lobby {
+
+        private String title;
+        private List<LobbyMember> members;
+        private LobbyMember host;
+
+        public AbstractHeadLobby(String title, List<LobbyMember> members, LobbyMember host) {
+            this.title = title;
+            this.members = members;
+            this.host = host;
+        }
+
+        @Override
+        public void addEventListener(LobbyEventListener listener) { }
+
+        @Override
+        public void removeEventListener(LobbyEventListener listener) { }
+
+        @Override
+        public void changeTitle(String newName, Callback<Lobby> callback) {
+            if (callback != null) callback.onError(new UnsupportedOperationException("This lobby doesn't support title change"));
+        }
+
+        @Override
+        public String getTitle() {
+            return title;
+        }
+
+        @Override
+        public List<LobbyMember> getMembers() {
+            return members;
+        }
+
+        @Override
+        public LobbyMember getHost() {
+            return host;
+        }
+
+        @Override
+        public LobbyMember getClient() {
+            throw new UnsupportedOperationException("Not connected");
+        }
+
+        @Override
+        public QueueLooper getLooper() {
+            throw new UnsupportedOperationException("Not connected");
+        }
+
+        @Override
+        public LibraryProvider getLibrary() {
+            throw new UnsupportedOperationException("Not connected");
+        }
+
+        @Override
+        public int getPlayerState() {
+            return 0;
+        }
+
+        @Override
+        public int getConnectionState() {
+            return Lobby.STATE_CLOSED;
+        }
     }
 }

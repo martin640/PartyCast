@@ -9,7 +9,10 @@ import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.upstream.DataSource;
 
 import org.java_websocket.WebSocket;
+import org.java_websocket.drafts.Draft;
+import org.java_websocket.exceptions.InvalidDataException;
 import org.java_websocket.handshake.ClientHandshake;
+import org.java_websocket.handshake.ServerHandshakeBuilder;
 import org.java_websocket.server.WebSocketServer;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -114,6 +117,14 @@ public class ServerLobby implements Lobby, JSONable {
 
         this.state = STATE_CONNECTING;
         socketServer = new WebSocketServer(socketAddress) {
+
+            @Override
+            public ServerHandshakeBuilder onWebsocketHandshakeReceivedAsServer(WebSocket conn, Draft draft, ClientHandshake request) throws InvalidDataException {
+                ServerHandshakeBuilder builder = super.onWebsocketHandshakeReceivedAsServer(conn, draft, request);
+                builder.put("PartyCast-Lobby-Name", title);
+                return builder;
+            }
+
             @Override
             public void onOpen(WebSocket conn, ClientHandshake handshake) {
                 ServerLobbyMember newMember;
