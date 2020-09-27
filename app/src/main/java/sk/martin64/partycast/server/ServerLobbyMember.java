@@ -1,6 +1,7 @@
 package sk.martin64.partycast.server;
 
 import org.java_websocket.WebSocket;
+import org.java_websocket.framing.CloseFrame;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -65,6 +66,17 @@ public class ServerLobbyMember implements LobbyMember, JSONable {
 
         for (LobbyEventListener l : lobby.safeListenersCopy())
             l.onUserUpdated(lobby, this);
+    }
+
+    @Override
+    public void kick(Callback<Void> callback) {
+        connection.close(CloseFrame.REFUSE, "You were kicked out of the session");
+        callback.onSuccess(null);
+    }
+
+    @Override
+    public void ban(Callback<Void> callback) {
+        callback.onError(new UnsupportedOperationException("Banning is not supported in current version"));
     }
 
     @Override

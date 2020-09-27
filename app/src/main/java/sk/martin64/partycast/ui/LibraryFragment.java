@@ -25,6 +25,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executors;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -47,6 +50,8 @@ public class LibraryFragment extends Fragment implements LobbyEventListener {
     private Lobby lobby;
     private LibraryAdapter adapter;
 
+    private List<LibraryItem> libraryItems;
+
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
@@ -56,18 +61,25 @@ public class LibraryFragment extends Fragment implements LobbyEventListener {
         lobby = LobbyCoordinatorService.getInstance().getActiveLobby();
         lobby.addEventListener(this);
 
-        adapter = new LibraryAdapter(lobby);
+        adapter = new LibraryAdapter(lobby, libraryItems = new ArrayList<>());
         clients.setLayoutManager(new LinearLayoutManager(getContext(), RecyclerView.VERTICAL, false));
         clients.setItemAnimator(new DefaultItemAnimator());
         clients.setAdapter(adapter);
+
+        Executors.newSingleThreadExecutor().submit(() -> onLibraryUpdated(lobby, lobby.getLibrary()));
 
         return root;
     }
 
     @Override
     public void onLibraryUpdated(Lobby lobby, LibraryProvider libraryProvider) {
-        new Handler(Looper.getMainLooper()).post(() ->
-                adapter.notifyDataSetChanged());
+        // obtain copy of library on background thread because LibraryProvider usually holds a lock which may block UI thread
+        List<LibraryItem> data = libraryProvider.getAll();
+        new Handler(Looper.getMainLooper()).post(() -> {
+            libraryItems.clear();
+            libraryItems.addAll(data);
+            adapter.notifyDataSetChanged();
+        });
     }
 
     @Override
@@ -98,9 +110,11 @@ public class LibraryFragment extends Fragment implements LobbyEventListener {
         }
 
         private Lobby lobby;
+        private List<LibraryItem> libraryItems;
 
-        public LibraryAdapter(Lobby lobby) {
+        public LibraryAdapter(Lobby lobby, List<LibraryItem> libraryItems) {
             this.lobby = lobby;
+            this.libraryItems = libraryItems;
         }
 
         @NonNull
@@ -111,7 +125,7 @@ public class LibraryFragment extends Fragment implements LobbyEventListener {
 
         @Override
         public void onBindViewHolder(@NonNull LibraryAdapter.ViewHolder holder, int position) {
-            LibraryItem media = lobby.getLibrary().getAll().get(position);
+            LibraryItem media = libraryItems.get(position);
 
             holder.title.setText(media.getTitle());
             holder.artist.setText(media.getArtist());
@@ -171,7 +185,7 @@ public class LibraryFragment extends Fragment implements LobbyEventListener {
 
         @Override
         public int getItemCount() {
-            return lobby.getLibrary().getAll().size();
+            return libraryItems.size();
         }
     }
 }

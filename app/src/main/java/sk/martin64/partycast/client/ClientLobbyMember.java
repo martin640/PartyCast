@@ -90,6 +90,16 @@ public class ClientLobbyMember implements LobbyMember {
     }
 
     @Override
+    public void kick(Callback<Void> callback) {
+        callback.onError(new UnsupportedOperationException("Remote kicking is not supported in this version"));
+    }
+
+    @Override
+    public void ban(Callback<Void> callback) {
+        callback.onError(new UnsupportedOperationException("Remote banning is not supported in this version"));
+    }
+
+    @Override
     public String getUserAgent() {
         return agent;
     }

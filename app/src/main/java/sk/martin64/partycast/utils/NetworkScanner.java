@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public final class NetworkScanner {
 
@@ -39,6 +40,7 @@ public final class NetworkScanner {
         final List<String> output = new ArrayList<>();
         final List<Future<?>> pendingTasks = new ArrayList<>();
         final List<Long> finishedTasks = new ArrayList<>();
+        final AtomicInteger counter = new AtomicInteger(0);
         ExecutorService service;
         if (nThreads > 0) service = Executors.newFixedThreadPool(nThreads);
         else service = Executors.newCachedThreadPool();
@@ -56,7 +58,9 @@ public final class NetworkScanner {
                 try (Socket s = new Socket()) {
                     s.setReuseAddress(true);
                     SocketAddress sa = new InetSocketAddress(ip, port);
+                    long st = System.nanoTime();
                     s.connect(sa, timeout);
+                    long et = System.nanoTime() - st;
 
                     if (synchronizedOutput && id != 1) { // wait for previous task to be finished
                         while (true) {
@@ -72,7 +76,7 @@ public final class NetworkScanner {
                         }
                     }
 
-                    handler.onDiscoverActive(ip);
+                    handler.onDiscoverActive(ip, et / 1000000f);
                     synchronized (output) {
                         output.add(ip);
                     }
@@ -80,6 +84,7 @@ public final class NetworkScanner {
                     handler.onDiscarded(ip, e);
                 }
 
+                handler.onStatusChange(counter.getAndIncrement(), iterator.getMaxHosts());
                 synchronized (finishedTasks) {
                     finishedTasks.add(id);
                 }
@@ -113,8 +118,9 @@ public final class NetworkScanner {
     }
 
     public interface ScannerHandler {
-        void onDiscoverActive(String address);
+        void onDiscoverActive(String address, float ping);
         default void onDiscarded(String address, IOException e) {}
+        default void onStatusChange(long processed, long max) {}
         void onScanComplete(List<String> addresses, long iteratedLength, float time);
     }
 

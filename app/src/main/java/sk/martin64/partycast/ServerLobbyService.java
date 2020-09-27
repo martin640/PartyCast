@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
@@ -27,6 +28,7 @@ import sk.martin64.partycast.core.LobbyEventListener;
 import sk.martin64.partycast.core.LobbyMember;
 import sk.martin64.partycast.core.RemoteMedia;
 import sk.martin64.partycast.server.ServerLobby;
+import sk.martin64.partycast.utils.Callback;
 
 public class ServerLobbyService extends Service implements LobbyEventListener {
 
@@ -56,16 +58,19 @@ public class ServerLobbyService extends Service implements LobbyEventListener {
         return lobby;
     }
 
-    public static String pickName() {
+    public static String pickName(String preferred) {
+        if (!TextUtils.isEmpty(preferred)) return preferred;
+
         String serverName = null;
         try {
             BluetoothAdapter myDevice = BluetoothAdapter.getDefaultAdapter();
             serverName = myDevice.getName();
-        } catch (Exception e) { }
+        } catch (Exception ignored) {
+        }
 
-        if (TextUtils.isEmpty(serverName)) serverName = Build.MODEL;
+        if (!TextUtils.isEmpty(serverName)) return serverName;
 
-        return serverName;
+        return Build.MODEL;
     }
 
     @Override
@@ -74,10 +79,22 @@ public class ServerLobbyService extends Service implements LobbyEventListener {
 
         player = new SimpleExoPlayer.Builder(this).build();
 
-        lobby = new ServerLobby(pickName(),
+        SharedPreferences savedInstance = getSharedPreferences("si", MODE_PRIVATE);
+
+        lobby = new ServerLobby(pickName(savedInstance.getString("last_server_name", null)),
                 SERVER_PORT, player, new DefaultDataSourceFactory(this, "PartyCast"),
                 ARTWORK_SERVER_PORT, getContentResolver(),
-                this);
+                savedInstance.getString("last_name", "Admin"),
+                this) {
+
+            @Override
+            public void changeTitle(String newName, Callback<Lobby> callback) {
+                super.changeTitle(newName, callback);
+                savedInstance.edit()
+                        .putString("last_server_name", newName)
+                        .apply();
+            }
+        };
 
         registerReceiver(receiver, new IntentFilter("STOP_SERVER"));
 
@@ -98,7 +115,7 @@ public class ServerLobbyService extends Service implements LobbyEventListener {
         if (notificationBuilder == null)
             return;
 
-        int size = lobby.getMembers().size()-1;
+        int size = lobby.getMembers().size() - 1;
         notificationBuilder.setSubText(String.format("%s (%s)", lobby.getTitle(), size));
         if (lobby.getPlayerState() == Lobby.PLAYBACK_READY) {
             notificationBuilder.setContentTitle("");

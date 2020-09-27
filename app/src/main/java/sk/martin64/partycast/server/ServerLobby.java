@@ -11,6 +11,7 @@ import com.google.android.exoplayer2.upstream.DataSource;
 import org.java_websocket.WebSocket;
 import org.java_websocket.drafts.Draft;
 import org.java_websocket.exceptions.InvalidDataException;
+import org.java_websocket.framing.CloseFrame;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.handshake.ServerHandshakeBuilder;
 import org.java_websocket.server.WebSocketServer;
@@ -18,7 +19,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,6 +31,7 @@ import sk.martin64.partycast.core.LibraryProvider;
 import sk.martin64.partycast.core.Lobby;
 import sk.martin64.partycast.core.LobbyEventListener;
 import sk.martin64.partycast.core.LobbyMember;
+import sk.martin64.partycast.core.OperationRejectedException;
 import sk.martin64.partycast.core.QueueLooper;
 import sk.martin64.partycast.utils.Callback;
 
@@ -71,6 +72,7 @@ public class ServerLobby implements Lobby, JSONable {
                        DataSource.Factory dataSourceFactory,
                        int artworkProviderPort,
                        ContentResolver contentResolver,
+                       String username,
                        LobbyEventListener listener) {
         this.title = title;
         this.members = new ArrayList<>();
@@ -93,12 +95,6 @@ public class ServerLobby implements Lobby, JSONable {
             }
 
             @Override
-            public void onIsPlayingChanged(boolean isPlaying) {
-                /*if (player2.getPlaybackState() != ExoPlayer.STATE_BUFFERING)
-                    sendStatusUpdate(isPlaying ? STATE_PLAYING : STATE_STOPPED);*/
-            }
-
-            @Override
             public void onPlayerError(ExoPlaybackException error) {
                 error.printStackTrace();
             }
@@ -107,11 +103,17 @@ public class ServerLobby implements Lobby, JSONable {
         this.looper = new ServerQueueLooper(this);
 
         InetSocketAddress socketAddress = new InetSocketAddress(port);
-        this.server = new ServerLobbyMember("Admin", ++memberIdPool, LobbyMember.PERMISSION_HOST, "Server", null, this) {
+        this.server = new ServerLobbyMember(username, ++memberIdPool, LobbyMember.PERMISSION_HOST, "Server", null, this) {
             @Override
             void changePermissionsInternally(int permissions) {
                 // disallow changing permissions for admin
             }
+
+            @Override
+            public void kick(Callback<Void> callback) { callback.onError(new OperationRejectedException("Cannot kick server owner")); }
+
+            @Override
+            public void ban(Callback<Void> callback) { callback.onError(new OperationRejectedException("Cannot ban server owner")); }
         };
         this.members.add(this.server);
 
@@ -134,7 +136,7 @@ public class ServerLobby implements Lobby, JSONable {
                     if (newMember != null) {
                         if (members.contains(newMember)) {
                             conn.send("Connect failed: IP already connected");
-                            conn.close(4, "IP already connected");
+                            conn.close(CloseFrame.REFUSE, "IP already connected");
                             return;
                         }
 
@@ -153,14 +155,14 @@ public class ServerLobby implements Lobby, JSONable {
 
                     if (TextUtils.isEmpty(newName))  {
                         conn.send("Connect failed: Invalid name provided");
-                        conn.close(4, "Invalid name provided");
+                        conn.close(CloseFrame.REFUSE, "Invalid name provided");
                         return;
                     }
 
                     for (ServerLobbyMember member : members) {
                         if (Objects.equals(member.getName(), newName)) {
                             conn.send("Connect failed: Username is already in use");
-                            conn.close(5, "Username is already in use");
+                            conn.close(CloseFrame.REFUSE, "Username is already in use");
                             return;
                         }
                     }
@@ -278,16 +280,17 @@ public class ServerLobby implements Lobby, JSONable {
     void internalShutdown(Exception reason) {
         try {
             socketServer.stop();
-        } catch (IOException e) {
-            e.printStackTrace();
+
+            player.stop(true);
+            state = STATE_CLOSED;
+
+            for (LobbyEventListener l : safeListenersCopy())
+                l.onError(ServerLobby.this, reason);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        player.stop(true);
-        state = STATE_CLOSED;
-
-        for (LobbyEventListener l : safeListenersCopy())
-            l.onError(ServerLobby.this, reason);
     }
 
     void sendEvent(ServerLobbyMember member, String type, JSONable data) {

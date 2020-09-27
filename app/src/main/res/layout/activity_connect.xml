@@ -91,6 +91,14 @@
             android:layout_marginBottom="8dp"
             android:text="Create server" />
 
+        <ProgressBar
+            android:id="@+id/progressBar2"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="invisible"
+            tools:visibility="visible" />
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/lan_devices"
             android:layout_width="match_parent"

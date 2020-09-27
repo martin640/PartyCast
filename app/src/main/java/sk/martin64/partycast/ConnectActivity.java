@@ -1,9 +1,12 @@
 package sk.martin64.partycast;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.net.DhcpInfo;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -21,8 +24,13 @@ import androidx.recyclerview.widget.DefaultItemAnimator;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputLayout;
 
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.InterfaceAddress;
+import java.net.NetworkInterface;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -50,6 +58,8 @@ public class ConnectActivity extends AppCompatActivity {
     Button buttonScan;
     @BindView(R.id.lan_devices)
     RecyclerView lanDevices;
+    @BindView(R.id.progressBar2)
+    ProgressBar scanProgress;
 
     private LobbyCoordinatorService coordinatorService;
     private SharedPreferences savedInstance;
@@ -96,7 +106,7 @@ public class ConnectActivity extends AppCompatActivity {
 
         savedInstance = getSharedPreferences("si", MODE_PRIVATE);
         inputServer.getEditText().setText(savedInstance.getString("last_server", ""));
-        inputName.getEditText().setText(savedInstance.getString("last_name", ServerLobbyService.pickName()));
+        inputName.getEditText().setText(ServerLobbyService.pickName(savedInstance.getString("last_name", null)));
 
         lanDevices.setItemAnimator(new DefaultItemAnimator());
         lanDevices.setLayoutManager(new LinearLayoutManager(this, RecyclerView.VERTICAL, false));
@@ -145,6 +155,10 @@ public class ConnectActivity extends AppCompatActivity {
             button2.setEnabled(false);
             progressBar.setVisibility(View.VISIBLE);
 
+            savedInstance.edit()
+                    .putString("last_name", inputName.getEditText().getText().toString())
+                    .apply();
+
             coordinatorService.createServer(this,
                     new Callback<Lobby>() {
                         @Override
@@ -169,12 +183,40 @@ public class ConnectActivity extends AppCompatActivity {
         buttonScan.setOnClickListener(v -> {
             v.setEnabled(false);
             lanData.clear();
+            scanProgress.setVisibility(View.VISIBLE);
+            scanProgress.setProgress(0);
             adapter.notifyDataSetChanged();
 
-            NetworkScanner scanner = new NetworkScanner(ServerLobbyService.SERVER_PORT, "192.168.0.0/24");
-            scanController = scanner.run(100, 1000, false, new NetworkScanner.ScannerHandler() {
+            String subnet = "192.168.0.0/24";
+
+            WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (wifiManager != null) {
+                try {
+                    DhcpInfo d = wifiManager.getDhcpInfo();
+                    InetAddress inetAddress = InetAddress.getByName(intToIp(d.ipAddress));
+                    NetworkInterface networkInterface = NetworkInterface.getByInetAddress(inetAddress);
+                    if (networkInterface != null) {
+                        for (InterfaceAddress address : networkInterface.getInterfaceAddresses()) {
+                            short netPrefix = address.getNetworkPrefixLength();
+                            InetAddress add = address.getAddress();
+                            if (add instanceof Inet4Address) {
+                                subnet = intToIp(d.gateway) + "/" + netPrefix;
+                                break;
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
+            Snackbar.make(v, "Running scan on network " + subnet, Snackbar.LENGTH_LONG)
+                    .show();
+
+            NetworkScanner scanner = new NetworkScanner(ServerLobbyService.SERVER_PORT, subnet);
+            scanController = scanner.run(500, 600, false, new NetworkScanner.ScannerHandler() {
                 @Override
-                public void onDiscoverActive(String address) {
+                public void onDiscoverActive(String address, float ping) {
                     System.out.format("Discovered running service on port 22 on device %s\n", address);
 
                     coordinatorService.head(ConnectActivity.this, address, new Callback<Lobby>() {
@@ -186,7 +228,7 @@ public class ConnectActivity extends AppCompatActivity {
                         @Override
                         public void onSuccess(Lobby lobby) {
                             runOnUiThread(() -> {
-                                LocalPartyReference ref = new LocalPartyReference(address, lobby.getTitle());
+                                LocalPartyReference ref = new LocalPartyReference(address, lobby.getTitle(), String.format("%.00f ms", ping));
                                 lanData.add(ref);
                                 adapter.notifyItemInserted(lanData.indexOf(ref));
                             });
@@ -195,18 +237,35 @@ public class ConnectActivity extends AppCompatActivity {
                 }
 
                 @Override
+                public void onStatusChange(long processed, long max) {
+                    int progress = (int) (((float) processed / max) * 100f);
+                    runOnUiThread(() -> scanProgress.setProgress(progress));
+                }
+
+                @Override
                 public void onScanComplete(List<String> addresses, long length, float time) {
                     runOnUiThread(() -> {
-                        if (BuildConfig.DEBUG) {
-                            Toast.makeText(ConnectActivity.this,
-                                    String.format(Locale.getDefault(), "Network (size %s) iterated in %.01f ms", length, time),
-                                    Toast.LENGTH_SHORT).show();
-                        }
+                        scanProgress.setVisibility(View.INVISIBLE);
+                        Snackbar.make(v,
+                                String.format(Locale.getDefault(),
+                                        "Scan completed in %.01f s\nDiscovered %s device(s)",
+                                        time / 1000f, addresses.size()),
+                                5000)
+                                .setAction("OK", v1 -> {
+                                })
+                                .show();
                         v.setEnabled(true);
                     });
                 }
             });
         });
+    }
+
+    public String intToIp(int i) {
+        return ((i & 0xFF) + "." +
+                ((i >>>= 8) & 0xFF) + "." +
+                ((i >>>= 8) & 0xFF) + "." +
+                ((i >>>= 8) & 0xFF));
     }
 
     @Override
@@ -236,11 +295,12 @@ public class ConnectActivity extends AppCompatActivity {
     }
 
     public static class LocalPartyReference {
-        private String ip, name;
+        private String ip, name, ping;
 
-        public LocalPartyReference(String ip, String name) {
+        public LocalPartyReference(String ip, String name, String ping) {
             this.ip = ip;
             this.name = name;
+            this.ping = ping;
         }
 
         public String getIp() {
@@ -249,6 +309,10 @@ public class ConnectActivity extends AppCompatActivity {
 
         public String getName() {
             return name;
+        }
+
+        public String getPing() {
+            return ping;
         }
     }
 
@@ -260,6 +324,8 @@ public class ConnectActivity extends AppCompatActivity {
             TextView address;
             @BindView(R.id.imageView2)
             ImageView icon;
+            @BindView(R.id.textView3)
+            TextView ping;
 
             public LanDevicesHolder(@NonNull View itemView) {
                 super(itemView);
@@ -285,6 +351,7 @@ public class ConnectActivity extends AppCompatActivity {
 
             holder.title.setText(item.getName());
             holder.address.setText(item.getIp());
+            holder.ping.setText(item.getPing());
 
             holder.itemView.setOnClickListener(v -> {
                 inputServer.setEnabled(false);

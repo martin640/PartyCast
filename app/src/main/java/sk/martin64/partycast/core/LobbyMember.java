@@ -36,4 +36,8 @@ public interface LobbyMember {
     void changeName(String name, Callback<LobbyMember> callback);
 
     void changePermissions(int permissions, Callback<LobbyMember> callback);
+
+    void kick(Callback<Void> callback);
+
+    void ban(Callback<Void> callback);
 }

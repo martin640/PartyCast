@@ -6,6 +6,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
@@ -20,6 +21,9 @@ import sk.martin64.partycast.R;
 import sk.martin64.partycast.client.ClientLobbyMember;
 import sk.martin64.partycast.core.Lobby;
 import sk.martin64.partycast.core.LobbyMember;
+import sk.martin64.partycast.utils.Callback;
+
+import static android.content.Context.MODE_PRIVATE;
 
 public class LobbyMemberDialog extends BottomSheetDialogFragment {
 
@@ -39,6 +43,8 @@ public class LobbyMemberDialog extends BottomSheetDialogFragment {
     MaterialCheckBox switch4;
     @BindView(R.id.switch5)
     MaterialCheckBox switch5;
+    @BindView(R.id.button5)
+    Button buttonKick;
 
     private Unbinder unbinder;
     private LobbyMember member;
@@ -74,6 +80,12 @@ public class LobbyMemberDialog extends BottomSheetDialogFragment {
 
         imageButton.setOnClickListener(v -> {
             if (!inputName.getEditText().getText().toString().equals(member.getName())) {
+                if (isSelf) {
+                    getActivity().getSharedPreferences("si", MODE_PRIVATE)
+                            .edit()
+                            .putString("last_name", inputName.getEditText().getText().toString())
+                            .apply();
+                }
                 member.changeName(inputName.getEditText().getText().toString(), null);
             }
 
@@ -89,6 +101,24 @@ public class LobbyMemberDialog extends BottomSheetDialogFragment {
             }
 
             dismissAllowingStateLoss();
+        });
+
+        buttonKick.setOnClickListener(v -> {
+            member.kick(new Callback<Void>() {
+                @Override
+                public void onError(Exception e) {
+                    v.post(() ->
+                            Toast.makeText(v.getContext(), e.getMessage(), Toast.LENGTH_SHORT).show());
+                }
+
+                @Override
+                public void onSuccess(Void aVoid) {
+                    v.post(() -> {
+                        Toast.makeText(v.getContext(), "User has been kicked", Toast.LENGTH_SHORT).show();
+                        dismissAllowingStateLoss();
+                    });
+                }
+            });
         });
 
         return root;

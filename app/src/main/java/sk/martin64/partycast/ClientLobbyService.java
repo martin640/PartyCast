@@ -13,6 +13,8 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
+import java.util.Random;
+
 import sk.martin64.partycast.client.ClientLobby;
 import sk.martin64.partycast.core.Lobby;
 import sk.martin64.partycast.core.LobbyEventListener;
@@ -22,6 +24,7 @@ import sk.martin64.partycast.core.RemoteMedia;
 public class ClientLobbyService extends Service implements LobbyEventListener {
 
     public static final String CHANNEL_ID = "ClientLobbyService";
+    public static final String CHANNEL_MESSAGES_ID = "ClientLobbyServiceMsg";
 
     private ClientLobbyServiceBinder binder = new ClientLobbyServiceBinder() {};
     private ClientLobby lobby;
@@ -40,7 +43,8 @@ public class ClientLobbyService extends Service implements LobbyEventListener {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (!started) {
             createNotificationChannel();
-            notificationBuilder = new NotificationCompat.Builder(this, CHANNEL_ID).setSmallIcon(R.drawable.ic_round_device_hub_24)
+            notificationBuilder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_round_device_hub_24)
                     .setColor(getColor(R.color.colorPrimary))
                     .setShowWhen(false)
                     .setContentTitle("Connecting to remote host...")
@@ -89,6 +93,30 @@ public class ClientLobbyService extends Service implements LobbyEventListener {
         updateNotification();
     }
 
+    @Override
+    public void onDisconnect(Lobby lobby, int code, String reason) {
+        NotificationManager notificationManager = getSystemService(NotificationManager.class);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel =
+                    new NotificationChannel(CHANNEL_MESSAGES_ID, "PartyCast Client Messages", NotificationManager.IMPORTANCE_HIGH);
+
+            channel.setDescription("Channel for receiving messages from server and displaying them in notifications");
+            notificationManager.createNotificationChannel(channel);
+        }
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_MESSAGES_ID)
+                .setSmallIcon(R.drawable.ic_round_device_hub_24)
+                .setColor(getColor(R.color.colorPrimary))
+                .setContentTitle("Disconnected from lobby")
+                .setContentText("Reason: " + (reason != null ? reason : "Unknown"))
+                .setContentIntent(PendingIntent.getActivity(this, 1, new Intent(this, ConnectActivity.class), 0))
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT);
+        notificationManager.notify(124 + new Random().nextInt(500), builder.build());
+
+        stopSelf();
+    }
+
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
@@ -114,10 +142,9 @@ public class ClientLobbyService extends Service implements LobbyEventListener {
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            int importance = NotificationManager.IMPORTANCE_DEFAULT;
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "PartyCast Client", importance);
+            NotificationChannel channel =
+                    new NotificationChannel(CHANNEL_ID, "PartyCast Client", NotificationManager.IMPORTANCE_LOW);
             channel.setDescription("Background service for keeping PartyCast client connection alive.");
-            channel.setImportance(NotificationManager.IMPORTANCE_LOW);
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);
         }
