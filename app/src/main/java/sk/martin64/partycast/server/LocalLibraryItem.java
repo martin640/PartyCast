@@ -57,6 +57,10 @@ public class LocalLibraryItem implements LibraryItem, JSONable {
         return uri != null ? uri.toString() : null;
     }
 
+    public String getRemoteImageUrl() {
+        return uri != null ? String.format("http://[HOST]:%s/art/%s", provider.providerPort, id) : null;
+    }
+
     @Override
     public LibraryProvider getProvider() {
         return provider;
@@ -70,7 +74,7 @@ public class LocalLibraryItem implements LibraryItem, JSONable {
                         .put("title", title)
                         .put("artist", artist)
                         .put("album", album)
-                        .put("imageUrl", uri != null ? String.format("http://[HOST]:%s/art/%s", provider.providerPort, id) : null)
+                        .put("imageUrl", getRemoteImageUrl())
                 );
     }
 }

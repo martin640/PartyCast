@@ -8,6 +8,7 @@ import org.json.JSONObject;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -21,6 +22,7 @@ import sk.martin64.partycast.core.Lobby;
 import sk.martin64.partycast.core.LobbyEventListener;
 import sk.martin64.partycast.core.LobbyMember;
 import sk.martin64.partycast.core.QueueLooper;
+import sk.martin64.partycast.ui.UiHelper;
 import sk.martin64.partycast.utils.Callback;
 
 public class ClientLobby implements Lobby {
@@ -63,6 +65,7 @@ public class ClientLobby implements Lobby {
 
             @Override
             public void onMessage(String message) {
+                System.out.format("[WebSocketClient::onMessage] Accepted %s of data\n", UiHelper.humanReadableByteCountSI(message.getBytes(StandardCharsets.UTF_8).length));
                 try {
                     JSONObject messageData = new JSONObject(message);
                     String eventType = messageData.getString("type");

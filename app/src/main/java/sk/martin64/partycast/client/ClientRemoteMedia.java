@@ -11,7 +11,7 @@ import sk.martin64.partycast.core.RemoteMedia;
 public class ClientRemoteMedia implements RemoteMedia {
 
     private LobbyMember requester;
-    private String title, artist;
+    private String title, artist, artwork;
     private int id;
     private long length, start;
     private ClientQueue queue;
@@ -30,6 +30,10 @@ public class ClientRemoteMedia implements RemoteMedia {
 
                 this.title = values.optString("title");
                 this.artist = values.optString("artist");
+                this.artwork = values.optString("artwork", null);
+                if (this.artwork != null) {
+                    this.artwork = this.artwork.replaceAll("\\[HOST]", queue.getLooper().getContext().getHost().getAddressString());
+                }
                 this.length = values.optLong("length");
                 this.start = values.optLong("start");
                 this.id = values.optInt("id");
@@ -58,6 +62,11 @@ public class ClientRemoteMedia implements RemoteMedia {
     @Override
     public String getArtist() {
         return artist;
+    }
+
+    @Override
+    public String getArtwork() {
+        return artwork;
     }
 
     @Override

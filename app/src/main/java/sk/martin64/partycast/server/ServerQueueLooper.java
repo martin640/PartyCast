@@ -79,7 +79,7 @@ public class ServerQueueLooper implements QueueLooper, JSONable {
                         }
                     }
 
-                    ServerLocalAudioFileRef ref = new ServerLocalAudioFileRef(member, new File(item.path), dur, title, artist, queue);
+                    ServerLocalAudioFileRef ref = new ServerLocalAudioFileRef(member, new File(item.path), dur, title, artist, item.getImageUrl(), item.getRemoteImageUrl(), queue);
                     queue.mediaQueue.add(ref);
                     ref.id = queue.mediaQueue.indexOf(ref);
 
@@ -155,7 +155,6 @@ public class ServerQueueLooper implements QueueLooper, JSONable {
     public void skip(Callback<QueueLooper> callback) {
         synchronized (lock) {
             if (lobby.playbackState == Lobby.PLAYBACK_PLAYING) {
-                lobby.player.setPlayWhenReady(false);
                 lobby.playbackState = Lobby.PLAYBACK_READY;
             }
 

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/nav_host"
+        android:icon="@drawable/ic_cast_audio_24"
+        android:title="Host server"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/nav_scan"
+        android:icon="@drawable/ic_baseline_wifi_tethering_24"
+        android:title="Scan network"
+        android:visible="false"
+        app:showAsAction="ifRoom" />
+</menu>

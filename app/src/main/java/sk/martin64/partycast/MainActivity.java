@@ -2,11 +2,13 @@ package sk.martin64.partycast;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -18,6 +20,7 @@ import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
+import com.bumptech.glide.Glide;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.mikhaellopez.circularprogressbar.CircularProgressBar;
 import com.sothree.slidinguppanel.SlidingUpPanelLayout;
@@ -57,6 +60,8 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
     CircularProgressBar circularProgressBar;
     @BindView(R.id.ib_skip)
     ImageButton ibSkip;
+    @BindView(R.id.iv_artwork)
+    ImageView ivArtwork;
 
     private int navViewMeasuredHeight = 0;
     private Lobby lobby;
@@ -108,7 +113,11 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
                     runOnUiThread(() -> circularProgressBar.setProgress(nowPlaying.getProgress()));
                 }
 
-                try { Thread.sleep(500); } catch (InterruptedException e) { break; }
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    break;
+                }
             }
         });
 
@@ -131,6 +140,15 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
             }
         } else {
             RemoteMedia nowPlaying = lobby.getLooper().getCurrentQueue().getCurrentlyPlaying();
+            if (nowPlaying == null) {
+                Log.w("MainActivity", "Playback state is paused/playing but nowPlaying object is null");
+                return;
+            }
+
+            Glide.with(this)
+                    .load(nowPlaying.getArtwork())
+                    .error(R.drawable.ic_no_artwork)
+                    .into(ivArtwork);
 
             tvTitle.setText(nowPlaying.getTitle());
             tvArtist.setText(nowPlaying.getArtist());

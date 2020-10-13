@@ -9,6 +9,8 @@ import android.net.DhcpInfo;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -18,13 +20,18 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.DefaultItemAnimator;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager.widget.PagerAdapter;
+import androidx.viewpager.widget.ViewPager;
 
 import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.net.Inet4Address;
@@ -43,6 +50,12 @@ import sk.martin64.partycast.utils.LobbyCoordinatorService;
 import sk.martin64.partycast.utils.NetworkScanner;
 
 public class ConnectActivity extends AppCompatActivity {
+    @BindView(R.id.toolbar)
+    Toolbar toolbar;
+    @BindView(R.id.tabs)
+    TabLayout tabs;
+    @BindView(R.id.viewpager)
+    ViewPager viewpager;
 
     @BindView(R.id.input_server)
     TextInputLayout inputServer;
@@ -52,10 +65,6 @@ public class ConnectActivity extends AppCompatActivity {
     ProgressBar progressBar;
     @BindView(R.id.button)
     Button button;
-    @BindView(R.id.button2)
-    Button button2;
-    @BindView(R.id.button4)
-    Button buttonScan;
     @BindView(R.id.lan_devices)
     RecyclerView lanDevices;
     @BindView(R.id.progressBar2)
@@ -64,6 +73,7 @@ public class ConnectActivity extends AppCompatActivity {
     private LobbyCoordinatorService coordinatorService;
     private SharedPreferences savedInstance;
     private NetworkScanner.NetworkScanController scanController;
+    private LanDevicesAdapter adapter;
     private List<LocalPartyReference> lanData = new ArrayList<>();
 
     @Override
@@ -71,6 +81,23 @@ public class ConnectActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_connect);
         ButterKnife.bind(this);
+
+        setSupportActionBar(toolbar);
+        tabs.setupWithViewPager(viewpager);
+        viewpager.setAdapter(new MyPagerAdapter());
+        viewpager.addOnPageChangeListener(new ViewPager.OnPageChangeListener() {
+            @Override
+            public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) { }
+
+            @Override
+            public void onPageSelected(int position) {
+                itemHost.setVisible(position == 0);
+                itemScan.setVisible(position == 1);
+            }
+
+            @Override
+            public void onPageScrollStateChanged(int state) { }
+        });
 
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
@@ -88,7 +115,7 @@ public class ConnectActivity extends AppCompatActivity {
             inputServer.setEnabled(false);
             inputName.setEnabled(false);
             button.setEnabled(false);
-            button2.setEnabled(false);
+            itemHost.setEnabled(false);
             progressBar.setVisibility(View.VISIBLE);
 
             coordinatorService.join(new Callback<Lobby>() {
@@ -110,14 +137,14 @@ public class ConnectActivity extends AppCompatActivity {
 
         lanDevices.setItemAnimator(new DefaultItemAnimator());
         lanDevices.setLayoutManager(new LinearLayoutManager(this, RecyclerView.VERTICAL, false));
-        LanDevicesAdapter adapter = new LanDevicesAdapter(lanData);
+        adapter = new LanDevicesAdapter(lanData);
         lanDevices.setAdapter(adapter);
 
         button.setOnClickListener(v -> {
             inputServer.setEnabled(false);
             inputName.setEnabled(false);
             button.setEnabled(false);
-            button2.setEnabled(false);
+            itemHost.setEnabled(false);
             progressBar.setVisibility(View.VISIBLE);
 
             savedInstance.edit()
@@ -134,7 +161,7 @@ public class ConnectActivity extends AppCompatActivity {
                             inputServer.setEnabled(true);
                             inputName.setEnabled(true);
                             button.setEnabled(true);
-                            button2.setEnabled(true);
+                            itemHost.setEnabled(true);
                             progressBar.setVisibility(View.GONE);
 
                             Toast.makeText(ConnectActivity.this, "Failed to connect to the server: " + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -146,118 +173,6 @@ public class ConnectActivity extends AppCompatActivity {
                             finish();
                         }
                     });
-        });
-
-        button2.setOnClickListener(v -> {
-            inputServer.setEnabled(false);
-            inputName.setEnabled(false);
-            button.setEnabled(false);
-            button2.setEnabled(false);
-            progressBar.setVisibility(View.VISIBLE);
-
-            savedInstance.edit()
-                    .putString("last_name", inputName.getEditText().getText().toString())
-                    .apply();
-
-            coordinatorService.createServer(this,
-                    new Callback<Lobby>() {
-                        @Override
-                        public void onError(Exception e) {
-                            inputServer.setEnabled(true);
-                            inputName.setEnabled(true);
-                            button.setEnabled(true);
-                            button2.setEnabled(true);
-                            progressBar.setVisibility(View.GONE);
-
-                            Toast.makeText(ConnectActivity.this, "Failed to create server: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                        }
-
-                        @Override
-                        public void onSuccess(Lobby lobby) {
-                            startActivity(new Intent(ConnectActivity.this, MainActivity.class));
-                            finish();
-                        }
-                    });
-        });
-
-        buttonScan.setOnClickListener(v -> {
-            v.setEnabled(false);
-            lanData.clear();
-            scanProgress.setVisibility(View.VISIBLE);
-            scanProgress.setProgress(0);
-            adapter.notifyDataSetChanged();
-
-            String subnet = "192.168.0.0/24";
-
-            WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-            if (wifiManager != null) {
-                try {
-                    DhcpInfo d = wifiManager.getDhcpInfo();
-                    InetAddress inetAddress = InetAddress.getByName(intToIp(d.ipAddress));
-                    NetworkInterface networkInterface = NetworkInterface.getByInetAddress(inetAddress);
-                    if (networkInterface != null) {
-                        for (InterfaceAddress address : networkInterface.getInterfaceAddresses()) {
-                            short netPrefix = address.getNetworkPrefixLength();
-                            InetAddress add = address.getAddress();
-                            if (add instanceof Inet4Address) {
-                                subnet = intToIp(d.gateway) + "/" + netPrefix;
-                                break;
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-
-            Snackbar.make(v, "Running scan on network " + subnet, Snackbar.LENGTH_LONG)
-                    .show();
-
-            NetworkScanner scanner = new NetworkScanner(ServerLobbyService.SERVER_PORT, subnet);
-            scanController = scanner.run(500, 600, false, new NetworkScanner.ScannerHandler() {
-                @Override
-                public void onDiscoverActive(String address, float ping) {
-                    System.out.format("Discovered running service on port 22 on device %s\n", address);
-
-                    coordinatorService.head(ConnectActivity.this, address, new Callback<Lobby>() {
-                        @Override
-                        public void onError(Exception e) {
-
-                        }
-
-                        @Override
-                        public void onSuccess(Lobby lobby) {
-                            runOnUiThread(() -> {
-                                LocalPartyReference ref = new LocalPartyReference(address, lobby.getTitle(), String.format("%.00f ms", ping));
-                                lanData.add(ref);
-                                adapter.notifyItemInserted(lanData.indexOf(ref));
-                            });
-                        }
-                    });
-                }
-
-                @Override
-                public void onStatusChange(long processed, long max) {
-                    int progress = (int) (((float) processed / max) * 100f);
-                    runOnUiThread(() -> scanProgress.setProgress(progress));
-                }
-
-                @Override
-                public void onScanComplete(List<String> addresses, long length, float time) {
-                    runOnUiThread(() -> {
-                        scanProgress.setVisibility(View.INVISIBLE);
-                        Snackbar.make(v,
-                                String.format(Locale.getDefault(),
-                                        "Scan completed in %.01f s\nDiscovered %s device(s)",
-                                        time / 1000f, addresses.size()),
-                                5000)
-                                .setAction("OK", v1 -> {
-                                })
-                                .show();
-                        v.setEnabled(true);
-                    });
-                }
-            });
         });
     }
 
@@ -274,6 +189,138 @@ public class ConnectActivity extends AppCompatActivity {
             scanController.cancel();
 
         super.onDestroy();
+    }
+
+    private Menu optionsMenu;
+    private MenuItem itemHost, itemScan;
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        this.optionsMenu = menu;
+        getMenuInflater().inflate(R.menu.connect, menu);
+        itemHost = optionsMenu.findItem(R.id.nav_host);
+        itemScan = optionsMenu.findItem(R.id.nav_scan);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        int id = item.getItemId();
+        switch (id) {
+            case R.id.nav_host: {
+                inputServer.setEnabled(false);
+                inputName.setEnabled(false);
+                button.setEnabled(false);
+                item.setEnabled(false);
+                progressBar.setVisibility(View.VISIBLE);
+
+                savedInstance.edit()
+                        .putString("last_name", inputName.getEditText().getText().toString())
+                        .apply();
+
+                coordinatorService.createServer(this,
+                        new Callback<Lobby>() {
+                            @Override
+                            public void onError(Exception e) {
+                                inputServer.setEnabled(true);
+                                inputName.setEnabled(true);
+                                button.setEnabled(true);
+                                item.setEnabled(true);
+                                progressBar.setVisibility(View.GONE);
+
+                                Toast.makeText(ConnectActivity.this, "Failed to create server: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                            }
+
+                            @Override
+                            public void onSuccess(Lobby lobby) {
+                                startActivity(new Intent(ConnectActivity.this, MainActivity.class));
+                                finish();
+                            }
+                        });
+                return true;
+            }
+            case R.id.nav_scan: {
+                item.setEnabled(false);
+                lanData.clear();
+                scanProgress.setVisibility(View.VISIBLE);
+                scanProgress.setProgress(0);
+                adapter.notifyDataSetChanged();
+
+                String subnet = "192.168.0.1/24";
+
+                WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+                if (wifiManager != null) {
+                    try {
+                        DhcpInfo d = wifiManager.getDhcpInfo();
+                        InetAddress inetAddress = InetAddress.getByName(intToIp(d.ipAddress));
+                        NetworkInterface networkInterface = NetworkInterface.getByInetAddress(inetAddress);
+                        if (networkInterface != null) {
+                            for (InterfaceAddress address : networkInterface.getInterfaceAddresses()) {
+                                short netPrefix = address.getNetworkPrefixLength();
+                                InetAddress add = address.getAddress();
+                                if (add instanceof Inet4Address) {
+                                    subnet = intToIp(d.gateway) + "/" + netPrefix;
+                                    break;
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                Snackbar.make(toolbar, "Running scan on network " + subnet, Snackbar.LENGTH_LONG)
+                        .show();
+
+                NetworkScanner scanner = new NetworkScanner(ServerLobbyService.SERVER_PORT, subnet);
+                scanController = scanner.run(500, 600, false, new NetworkScanner.ScannerHandler() {
+                    @Override
+                    public void onDiscoverActive(String address, float ping) {
+                        System.out.format("Discovered running service on port 22 on device %s\n", address);
+
+                        coordinatorService.head(ConnectActivity.this, address, new Callback<Lobby>() {
+                            @Override
+                            public void onError(Exception e) {
+
+                            }
+
+                            @Override
+                            public void onSuccess(Lobby lobby) {
+                                runOnUiThread(() -> {
+                                    LocalPartyReference ref = new LocalPartyReference(address, lobby.getTitle(), String.format("%.00f ms", ping));
+                                    lanData.add(ref);
+                                    adapter.notifyItemInserted(lanData.indexOf(ref));
+                                });
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onStatusChange(long processed, long max) {
+                        int progress = (int) (((float) processed / max) * 100f);
+                        runOnUiThread(() -> scanProgress.setProgress(progress));
+                    }
+
+                    @Override
+                    public void onScanComplete(List<String> addresses, long length, float time) {
+                        runOnUiThread(() -> {
+                            scanProgress.setVisibility(View.INVISIBLE);
+                            Snackbar.make(toolbar,
+                                    String.format(Locale.getDefault(),
+                                            "Scan completed in %.01f s\nDiscovered %s device(s)",
+                                            time / 1000f, addresses.size()),
+                                    5000)
+                                    .setAction("OK", v1 -> {
+                                    })
+                                    .show();
+                            item.setEnabled(true);
+                        });
+                    }
+                });
+                return true;
+            }
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -357,7 +404,7 @@ public class ConnectActivity extends AppCompatActivity {
                 inputServer.setEnabled(false);
                 inputName.setEnabled(false);
                 button.setEnabled(false);
-                button2.setEnabled(false);
+                itemHost.setEnabled(false);
                 progressBar.setVisibility(View.VISIBLE);
 
                 savedInstance.edit()
@@ -374,7 +421,7 @@ public class ConnectActivity extends AppCompatActivity {
                                 inputServer.setEnabled(true);
                                 inputName.setEnabled(true);
                                 button.setEnabled(true);
-                                button2.setEnabled(true);
+                                itemHost.setEnabled(true);
                                 progressBar.setVisibility(View.GONE);
 
                                 Toast.makeText(ConnectActivity.this, "Failed to connect to the server: " + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -392,6 +439,49 @@ public class ConnectActivity extends AppCompatActivity {
         @Override
         public int getItemCount() {
             return data.size();
+        }
+    }
+
+    private class MyPagerAdapter extends PagerAdapter {
+
+        @Override
+        @NonNull
+        public Object instantiateItem(@NonNull ViewGroup collection, int position) {
+            int resId = 0;
+            switch (position) {
+                case 0:
+                    resId = R.id.page1;
+                    break;
+                case 1:
+                    resId = R.id.page2;
+                    break;
+            }
+            return findViewById(resId);
+        }
+
+        @Override
+        public int getCount() {
+            return 2;
+        }
+
+        @Override
+        public boolean isViewFromObject(@NonNull View arg0, @NonNull Object arg1) {
+            return arg0 == arg1;
+        }
+
+        @Nullable
+        @Override
+        public CharSequence getPageTitle(int position) {
+            switch (position) {
+                case 0: return "Connect";
+                case 1: return "Discover devices";
+            }
+            return super.getPageTitle(position);
+        }
+
+        @Override
+        public void destroyItem(@NonNull ViewGroup container, int position, @NonNull Object object) {
+            // No super
         }
     }
 }

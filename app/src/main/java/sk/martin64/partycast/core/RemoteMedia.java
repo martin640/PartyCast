@@ -15,6 +15,11 @@ public interface RemoteMedia {
     String getArtist();
 
     /**
+     * @return uri linking to local/remote artwork file
+     */
+    String getArtwork();
+
+    /**
      * @return id of media
      */
     int getId();

@@ -7,25 +7,25 @@
 
     <fragment
         android:id="@+id/navigation_home"
-        android:name="sk.martin64.partycast.ui.HomeFragment"
+        android:name="sk.martin64.partycast.ui.main.HomeFragment"
         android:label="@string/lobby"
         tools:layout="@layout/fragment_home" />
 
     <fragment
         android:id="@+id/navigation_queue"
-        android:name="sk.martin64.partycast.ui.QueueFragment"
+        android:name="sk.martin64.partycast.ui.main.QueueFragment"
         android:label="@string/queue"
         tools:layout="@layout/fragment_home" />
 
     <fragment
         android:id="@+id/navigation_library"
-        android:name="sk.martin64.partycast.ui.LibraryFragment"
+        android:name="sk.martin64.partycast.ui.main.LibraryFragment"
         android:label="@string/library"
         tools:layout="@layout/fragment_home" />
 
     <fragment
         android:id="@+id/navigation_settings"
-        android:name="sk.martin64.partycast.ui.SettingsFragment"
+        android:name="sk.martin64.partycast.ui.main.SettingsFragment"
         android:label="@string/settings"
         tools:layout="@layout/fragment_settings" />
 </navigation>
