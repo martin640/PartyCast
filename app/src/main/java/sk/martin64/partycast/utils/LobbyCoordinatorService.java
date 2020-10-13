@@ -22,14 +22,14 @@ import java.util.List;
 import sk.martin64.partycast.BuildConfig;
 import sk.martin64.partycast.ClientLobbyService;
 import sk.martin64.partycast.ServerLobbyService;
-import sk.martin64.partycast.core.LibraryProvider;
-import sk.martin64.partycast.core.Lobby;
-import sk.martin64.partycast.core.LobbyEventListener;
-import sk.martin64.partycast.core.LobbyMember;
-import sk.martin64.partycast.core.QueueLooper;
+import partycast.model.LibraryProvider;
+import partycast.model.Lobby;
+import partycast.model.LobbyEventListener;
+import partycast.model.LobbyMember;
+import partycast.model.QueueLooper;
 
 import static android.content.Context.BIND_AUTO_CREATE;
-import static sk.martin64.partycast.client.ClientLobby.VERSION_NAME;
+import static partycast.client.ClientLobby.VERSION_NAME;
 
 public class LobbyCoordinatorService implements LobbyEventListener {
 

@@ -18,9 +18,9 @@ import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.Unbinder;
 import sk.martin64.partycast.R;
-import sk.martin64.partycast.client.ClientLobbyMember;
-import sk.martin64.partycast.core.Lobby;
-import sk.martin64.partycast.core.LobbyMember;
+import partycast.client.ClientLobbyMember;
+import partycast.model.Lobby;
+import partycast.model.LobbyMember;
 import sk.martin64.partycast.utils.Callback;
 
 import static android.content.Context.MODE_PRIVATE;

@@ -8,6 +8,7 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.textfield.TextInputLayout;
@@ -21,9 +22,10 @@ import java.util.concurrent.Executors;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.Unbinder;
+import partycast.model.Lobby;
+import partycast.model.LobbyEventListener;
 import sk.martin64.partycast.R;
-import sk.martin64.partycast.core.Lobby;
-import sk.martin64.partycast.core.LobbyEventListener;
+import sk.martin64.partycast.ui.UiHelper;
 import sk.martin64.partycast.utils.LobbyCoordinatorService;
 
 public class SettingsFragment extends Fragment implements LobbyEventListener {
@@ -32,8 +34,8 @@ public class SettingsFragment extends Fragment implements LobbyEventListener {
     TextInputLayout inputLobbyName;
     @BindView(R.id.button3)
     Button button3;
-    @BindView(R.id.tv_ip_addresses)
-    TextView tvIpAddresses;
+    @BindView(R.id.tv_info)
+    TextView tvInfo;
 
     private Unbinder unbinder;
     private Lobby lobby;
@@ -53,27 +55,36 @@ public class SettingsFragment extends Fragment implements LobbyEventListener {
             lobby.changeTitle(inputLobbyName.getEditText().getText().toString(), null);
         });
 
-        tvIpAddresses.setText("Loading IP address list...");
-        Executors.newSingleThreadExecutor().submit(() -> {
-            try {
-                StringBuilder builder = new StringBuilder();
-                Enumeration<NetworkInterface> netifenum = NetworkInterface.getNetworkInterfaces();
-                while (netifenum.hasMoreElements()) {
-                    NetworkInterface netif = netifenum.nextElement();
+        UiHelper.html(tvInfo, "<a href=\"custom:1\">Show device IP addresses</a>", (view, url) -> {
+            if (url.equals("custom:1")) {
+                Executors.newSingleThreadExecutor().submit(() -> {
+                    try {
+                        StringBuilder builder = new StringBuilder();
+                        Enumeration<NetworkInterface> netifenum = NetworkInterface.getNetworkInterfaces();
+                        while (netifenum.hasMoreElements()) {
+                            NetworkInterface netif = netifenum.nextElement();
 
-                    Enumeration<InetAddress> addrenum = netif.getInetAddresses();
-                    while (addrenum.hasMoreElements()) {
-                        InetAddress addr = addrenum.nextElement();
+                            Enumeration<InetAddress> addrenum = netif.getInetAddresses();
+                            while (addrenum.hasMoreElements()) {
+                                InetAddress addr = addrenum.nextElement();
 
-                        if (addr.isLoopbackAddress()) continue;
+                                if (addr.isLoopbackAddress()) continue;
 
-                        builder.append(addr.getHostAddress()).append('\n');
+                                builder.append(addr.getHostAddress()).append('\n');
+                            }
+                        }
+
+                        tvInfo.post(() -> {
+                            AlertDialog.Builder b = new AlertDialog.Builder(getContext());
+                            b.setTitle("Device IP addresses");
+                            b.setMessage(builder.toString());
+                            b.setPositiveButton("OK", (dialog, which) -> dialog.dismiss());
+                            b.show();
+                        });
+                    } catch (SocketException e) {
+                        e.printStackTrace();
                     }
-                }
-
-                tvIpAddresses.post(() -> tvIpAddresses.setText("Device IP addresses:\n\n" + builder.toString()));
-            } catch (SocketException e) {
-                e.printStackTrace();
+                });
             }
         });
 

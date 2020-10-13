@@ -44,7 +44,7 @@ import java.util.Locale;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import sk.martin64.partycast.core.Lobby;
+import partycast.model.Lobby;
 import sk.martin64.partycast.utils.Callback;
 import sk.martin64.partycast.utils.LobbyCoordinatorService;
 import sk.martin64.partycast.utils.NetworkScanner;

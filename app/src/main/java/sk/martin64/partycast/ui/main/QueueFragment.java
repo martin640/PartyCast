@@ -26,11 +26,11 @@ import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.Unbinder;
 import sk.martin64.partycast.R;
-import sk.martin64.partycast.core.Lobby;
-import sk.martin64.partycast.core.LobbyEventListener;
-import sk.martin64.partycast.core.Queue;
-import sk.martin64.partycast.core.QueueLooper;
-import sk.martin64.partycast.core.RemoteMedia;
+import partycast.model.Lobby;
+import partycast.model.LobbyEventListener;
+import partycast.model.Queue;
+import partycast.model.QueueLooper;
+import partycast.model.RemoteMedia;
 import sk.martin64.partycast.utils.LobbyCoordinatorService;
 
 public class QueueFragment extends Fragment implements LobbyEventListener {

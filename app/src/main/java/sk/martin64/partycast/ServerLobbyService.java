@@ -10,25 +10,36 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.text.TextUtils;
+import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+import androidx.palette.graphics.Palette;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.target.CustomTarget;
+import com.bumptech.glide.request.transition.Transition;
 import com.google.android.exoplayer2.ExoPlayer;
 import com.google.android.exoplayer2.SimpleExoPlayer;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 
-import sk.martin64.partycast.core.Lobby;
-import sk.martin64.partycast.core.LobbyEventListener;
-import sk.martin64.partycast.core.LobbyMember;
-import sk.martin64.partycast.core.RemoteMedia;
-import sk.martin64.partycast.server.ServerLobby;
+import partycast.model.Lobby;
+import partycast.model.LobbyEventListener;
+import partycast.model.LobbyMember;
+import partycast.model.RemoteMedia;
+import partycast.server.ServerLobby;
+import sk.martin64.partycast.androidserver.AndroidServerLobby;
+import sk.martin64.partycast.ui.UiHelper;
 import sk.martin64.partycast.utils.Callback;
+import sk.martin64.partycast.utils.StateLock;
 
 public class ServerLobbyService extends Service implements LobbyEventListener {
 
@@ -50,6 +61,14 @@ public class ServerLobbyService extends Service implements LobbyEventListener {
                 System.err.println("Stopped ServerLobby");
                 stopSelf();
                 stopForeground(true);
+            } else if (intent.getAction().equals("AC_PAUSE")) {
+                if (lobby.getPlayerState() == Lobby.PLAYBACK_PLAYING) {
+                    lobby.getLooper().pause(null);
+                } else {
+                    lobby.getLooper().play(null);
+                }
+            } else if (intent.getAction().equals("AC_SKIP")) {
+                lobby.getLooper().skip(null);
             }
         }
     };
@@ -81,11 +100,10 @@ public class ServerLobbyService extends Service implements LobbyEventListener {
 
         SharedPreferences savedInstance = getSharedPreferences("si", MODE_PRIVATE);
 
-        lobby = new ServerLobby(pickName(savedInstance.getString("last_server_name", null)),
-                SERVER_PORT, player, new DefaultDataSourceFactory(this, "PartyCast"),
-                ARTWORK_SERVER_PORT, getContentResolver(),
-                savedInstance.getString("last_name", "Admin"),
-                this) {
+        lobby = new AndroidServerLobby(pickName(savedInstance.getString("last_server_name", null)),
+                SERVER_PORT, savedInstance.getString("last_name", "Admin"), this,
+                player, new DefaultDataSourceFactory(this, "PartyCast"),
+                ARTWORK_SERVER_PORT, getContentResolver()) {
 
             @Override
             public void changeTitle(String newName, Callback<Lobby> callback) {
@@ -97,17 +115,23 @@ public class ServerLobbyService extends Service implements LobbyEventListener {
         };
 
         registerReceiver(receiver, new IntentFilter("STOP_SERVER"));
+        registerReceiver(receiver, new IntentFilter("AC_PAUSE"));
+        registerReceiver(receiver, new IntentFilter("AC_SKIP"));
 
         createNotificationChannel();
         notificationBuilder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_round_device_hub_24)
-                .setColor(getColor(R.color.colorAccent))
+                .setColor(0xFFFFFFFF)
+                .setColorized(true)
                 .setShowWhen(false)
                 .setSubText(String.format("%s (0)", lobby.getTitle()))
                 .setContentTitle("")
                 .setContentText("")
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setContentIntent(PendingIntent.getActivity(this, 1, new Intent(this, ConnectActivity.class), 0))
-                .addAction(R.mipmap.ic_launcher, "Stop", PendingIntent.getBroadcast(this, 2, new Intent("STOP_SERVER"), 0))
+                .addAction(R.drawable.ic_round_close_24, "Stop server", PendingIntent.getBroadcast(this, 2, new Intent("STOP_SERVER"), 0))
+                .addAction(R.drawable.ic_round_play_arrow_24, "Play/Pause", PendingIntent.getBroadcast(this, 3, new Intent("AC_PAUSE"), 0))
+                .addAction(R.drawable.ic_round_skip_next_24, "Skip", PendingIntent.getBroadcast(this, 4, new Intent("AC_SKIP"), 0))
                 .setPriority(NotificationCompat.PRIORITY_MAX);
     }
 
@@ -115,19 +139,61 @@ public class ServerLobbyService extends Service implements LobbyEventListener {
         if (notificationBuilder == null)
             return;
 
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+
         int size = lobby.getMembers().size() - 1;
         notificationBuilder.setSubText(String.format("%s (%s)", lobby.getTitle(), size));
+
+        notificationBuilder.setStyle(new androidx.media.app.NotificationCompat.MediaStyle());
+
+        notificationBuilder.mActions.set(1, new NotificationCompat.Action((lobby.getPlayerState() == Lobby.PLAYBACK_PLAYING) ?
+                R.drawable.ic_round_pause_24 : R.drawable.ic_round_play_arrow_24, "Play/Pause",
+                PendingIntent.getBroadcast(this, 3, new Intent("AC_PAUSE"), 0)));
+
         if (lobby.getPlayerState() == Lobby.PLAYBACK_READY) {
             notificationBuilder.setContentTitle("");
             notificationBuilder.setContentText("");
+            notificationBuilder.setLargeIcon(null);
         } else {
             RemoteMedia nowPlaying = lobby.getLooper().getCurrentQueue().getCurrentlyPlaying();
+            if (nowPlaying == null) {
+                Log.w("SLService", "ServerLobby claims playback state == playing/paused but currently playing media is null; skipping notification update");
+                return;
+            }
+
+            StateLock<RemoteMedia> nowPlayingLock = new StateLock<>(nowPlaying);
+
+            UiHelper.runOnUiCompact(() -> {
+                Glide.with(this)
+                        .asBitmap()
+                        .load(nowPlaying.getArtwork())
+                        .error(R.drawable.ic_no_artwork)
+                        .into(new CustomTarget<Bitmap>() {
+                            @Override
+                            public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
+                                Palette.from(resource).generate(palette -> UiHelper.runOnUiCompact(() -> {
+                                    try {
+                                        RemoteMedia np = lobby.getLooper().getCurrentQueue().getCurrentlyPlaying();
+                                        if (nowPlayingLock.verify(np)) {
+                                            notificationBuilder.setColor(palette != null ?palette.getDominantColor(0xFFFFFFFF) : 0xFFFFFFFF);
+                                            notificationBuilder.setLargeIcon(resource);
+                                            notificationManager.notify(1, notificationBuilder.build());
+                                        }
+                                    } catch (Exception e) {
+                                        e.printStackTrace();
+                                    }
+                                }));
+                            }
+
+                            @Override
+                            public void onLoadCleared(@Nullable Drawable placeholder) { }
+                        });
+            });
 
             notificationBuilder.setContentTitle(nowPlaying.getTitle());
             notificationBuilder.setContentText(nowPlaying.getArtist());
         }
 
-        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
         notificationManager.notify(1, notificationBuilder.build());
     }
 

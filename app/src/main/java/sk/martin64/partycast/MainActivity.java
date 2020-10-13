@@ -29,10 +29,10 @@ import java.util.concurrent.Executors;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import sk.martin64.partycast.core.Lobby;
-import sk.martin64.partycast.core.LobbyEventListener;
-import sk.martin64.partycast.core.LobbyMember;
-import sk.martin64.partycast.core.RemoteMedia;
+import partycast.model.Lobby;
+import partycast.model.LobbyEventListener;
+import partycast.model.LobbyMember;
+import partycast.model.RemoteMedia;
 import sk.martin64.partycast.utils.Callback;
 import sk.martin64.partycast.utils.LobbyCoordinatorService;
 
@@ -206,6 +206,12 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
     public void onStop() {
         super.onStop();
         active = false;
+    }
+
+    @Override
+    protected void onDestroy() {
+        lobby.removeEventListener(this);
+        super.onDestroy();
     }
 
     @Override
