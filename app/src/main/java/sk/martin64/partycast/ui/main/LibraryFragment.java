@@ -85,8 +85,8 @@ public class LibraryFragment extends Fragment implements LobbyEventListener {
 
     @Override
     public void onDestroy() {
-        lobby.removeEventListener(this);
-        unbinder.unbind();
+        if (lobby != null) lobby.removeEventListener(this);
+        if (unbinder != null) unbinder.unbind();
         super.onDestroy();
     }
 

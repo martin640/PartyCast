@@ -3,13 +3,14 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="400dp">
+    android:layout_height="300dp">
 
     <LinearLayout
         android:id="@+id/swipe_bar"
         android:layout_width="0dp"
-        android:layout_height="67dp"
+        android:layout_height="wrap_content"
         android:gravity="center_vertical"
+        android:minHeight="67dp"
         android:orientation="horizontal"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -75,7 +76,8 @@
         <FrameLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp">
+            android:layout_marginEnd="8dp"
+            android:layout_marginRight="-50dp">
 
             <com.mikhaellopez.circularprogressbar.CircularProgressBar
                 android:id="@+id/circularProgressBar"
@@ -110,13 +112,74 @@
             app:srcCompat="@drawable/ic_round_skip_next_24" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/textView8"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="epic empty space"
+    <ImageButton
+        android:id="@+id/ib_control_large"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:layout_marginBottom="24dp"
+        android:background="@drawable/control_bg"
+        android:clickable="true"
+        android:focusable="true"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
+        app:srcCompat="@drawable/ic_round_play_arrow_24" />
+
+    <ImageButton
+        android:id="@+id/ib_equalizer_large"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/control_bg"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@+id/ib_control_large"
+        app:layout_constraintEnd_toStartOf="@+id/ib_control_large"
+        app:layout_constraintTop_toTopOf="@+id/ib_control_large"
+        app:srcCompat="@drawable/ic_round_equalizer_24" />
+
+    <ImageButton
+        android:id="@+id/ib_skip_large"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/control_bg"
+        android:clickable="true"
+        android:focusable="true"
+        app:layout_constraintBottom_toBottomOf="@+id/ib_control_large"
+        app:layout_constraintStart_toEndOf="@+id/ib_control_large"
+        app:layout_constraintTop_toTopOf="@+id/ib_control_large"
+        app:srcCompat="@drawable/ic_round_skip_next_24" />
+
+    <ProgressBar
+        android:id="@+id/control_progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="32dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        app:layout_constraintBottom_toTopOf="@+id/ib_control_large"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/swipe_bar" />
+
+    <TextView
+        android:id="@+id/control_progress_left"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0:00"
+        app:layout_constraintBottom_toTopOf="@+id/control_progress"
+        app:layout_constraintStart_toStartOf="@+id/control_progress" />
+
+    <TextView
+        android:id="@+id/control_progress_right"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0:00"
+        app:layout_constraintBottom_toTopOf="@+id/control_progress"
+        app:layout_constraintEnd_toEndOf="@+id/control_progress" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

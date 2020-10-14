@@ -100,8 +100,8 @@ public class SettingsFragment extends Fragment implements LobbyEventListener {
 
     @Override
     public void onDestroy() {
-        unbinder.unbind();
-        lobby.removeEventListener(this);
+        if (lobby != null) lobby.removeEventListener(this);
+        if (unbinder != null) unbinder.unbind();
         super.onDestroy();
     }
 }

@@ -9,6 +9,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -33,6 +34,7 @@ import partycast.model.Lobby;
 import partycast.model.LobbyEventListener;
 import partycast.model.LobbyMember;
 import partycast.model.RemoteMedia;
+import sk.martin64.partycast.ui.UiHelper;
 import sk.martin64.partycast.utils.Callback;
 import sk.martin64.partycast.utils.LobbyCoordinatorService;
 
@@ -63,8 +65,23 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
     @BindView(R.id.iv_artwork)
     ImageView ivArtwork;
 
+    @BindView(R.id.ib_control_large)
+    ImageButton ibControlLarge;
+    @BindView(R.id.ib_equalizer_large)
+    ImageButton ibEqualizerLarge;
+    @BindView(R.id.ib_skip_large)
+    ImageButton ibSkipLarge;
+    @BindView(R.id.control_progress)
+    ProgressBar controlProgress;
+    @BindView(R.id.control_progress_left)
+    TextView controlProgressLeft;
+    @BindView(R.id.control_progress_right)
+    TextView controlProgressRight;
+
     private int navViewMeasuredHeight = 0;
     private Lobby lobby;
+
+    private int dp45, dp16, dpControlsOffset;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,6 +89,10 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
         setContentView(R.layout.activity_main);
         ButterKnife.bind(this);
         setSupportActionBar(toolbar);
+
+        dp45 = (int) UiHelper.convertDpToPixel(45, this);
+        dp16 = (int) UiHelper.convertDpToPixel(16, this);
+        dpControlsOffset = (int) -UiHelper.convertDpToPixel(78, this);
 
         slidingLayout.post(() -> {
             navViewMeasuredHeight = navView.getMeasuredHeight();
@@ -82,6 +103,18 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
             public void onPanelSlide(View panel, float slideOffset) {
                 slideOffset = Math.max(slideOffset, 0);
                 navView.setTranslationY((slideOffset / 0.5f) * navViewMeasuredHeight);
+
+                ViewGroup.LayoutParams ivArtworkParams = ivArtwork.getLayoutParams();
+                ivArtworkParams.width = ivArtworkParams.height = (int) (dp45 + (slideOffset * dp45));
+                ivArtwork.requestLayout();
+
+                swipeBar.setPadding(0, (int) (slideOffset * dp16), 0, 0);
+
+                ViewGroup.MarginLayoutParams ibSkipParams = (ViewGroup.MarginLayoutParams) ibSkip.getLayoutParams();
+                ibSkipParams.rightMargin = (int) (slideOffset * dpControlsOffset);
+                ibSkip.requestLayout();
+
+                tvTitle.setMaxLines(slideOffset == 1 ? 2 : 1);
             }
 
             @Override
@@ -103,14 +136,27 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
         slidingLayout.post(this::updateMiniPlayer);
 
         circularProgressBar.setProgressMax(1);
+        controlProgress.setMax(1);
         Executors.newSingleThreadExecutor().submit(() -> {
             while (!isDestroyed()) {
                 Lobby lobbyCopy = lobby;
                 if (lobbyCopy.getPlayerState() == Lobby.PLAYBACK_READY) {
-                    runOnUiThread(() -> circularProgressBar.setProgress(0));
+                    runOnUiThread(() -> {
+                        circularProgressBar.setProgress(0);
+                        controlProgress.setProgress(0);
+                    });
                 } else {
                     RemoteMedia nowPlaying = lobby.getLooper().getCurrentQueue().getCurrentlyPlaying();
-                    runOnUiThread(() -> circularProgressBar.setProgress(nowPlaying.getProgress()));
+                    if (nowPlaying != null) {
+                        long progressReal = (long) (nowPlaying.getDuration() * nowPlaying.getProgress());
+                        runOnUiThread(() -> {
+                            circularProgressBar.setProgress(nowPlaying.getProgress());
+                            controlProgress.setMax((int) (nowPlaying.getDuration() / 1000));
+                            controlProgress.setProgress((int) (progressReal / 1000));
+                            controlProgressLeft.setText(UiHelper.timeFormat(progressReal));
+                            controlProgressRight.setText(UiHelper.timeFormat(nowPlaying.getDuration()));
+                        });
+                    }
                 }
 
                 try {
@@ -127,6 +173,29 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
                 finish();
             }
         });
+
+        /* Equalizer not working with ExoPlayer2
+        ibEqualizerLarge.setOnClickListener((v) -> {
+            if (lobby instanceof AndroidServerLobby) {
+                AndroidServerLobby androidServerLobby = (AndroidServerLobby) lobby;
+                int sessionId = androidServerLobby.getMediaSessionId();
+
+                if (sessionId == AudioEffect.ERROR_BAD_VALUE) {
+                    Toast.makeText(this, "Session ID is not available. Make sure playback has started.", Toast.LENGTH_SHORT).show();
+                } else {
+                    try {
+                        final Intent effects = new Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL);
+                        effects.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, sessionId);
+                        effects.putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC);
+                        startActivityForResult(effects, 0);
+                    } catch (ActivityNotFoundException notFound) {
+                        Toast.makeText(this, "Your system doesn't have built-in equalizer", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            } else {
+                Toast.makeText(this, "You must be host to access equalizer panel", Toast.LENGTH_SHORT).show();
+            }
+        });*/
     }
 
     private void updateMiniPlayer() {
@@ -139,7 +208,7 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
                 slidingLayout.setPanelState(SlidingUpPanelLayout.PanelState.HIDDEN);
             }
         } else {
-            RemoteMedia nowPlaying = lobby.getLooper().getCurrentQueue().getCurrentlyPlaying();
+            RemoteMedia nowPlaying = lobby.getLooper().getNowPlaying();
             if (nowPlaying == null) {
                 Log.w("MainActivity", "Playback state is paused/playing but nowPlaying object is null");
                 return;
@@ -148,6 +217,7 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
             Glide.with(this)
                     .load(nowPlaying.getArtwork())
                     .error(R.drawable.ic_no_artwork)
+                    .override(dp45 * 2)
                     .into(ivArtwork);
 
             tvTitle.setText(nowPlaying.getTitle());
@@ -166,15 +236,24 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
         boolean hasPermissions = Lobby.checkPermission(lobby.getClient(), LobbyMember.PERMISSION_MANAGE_QUEUE);
         ibControl.setEnabled(hasPermissions);
         ibSkip.setEnabled(hasPermissions);
+        ibControlLarge.setEnabled(hasPermissions);
+        ibSkipLarge.setEnabled(hasPermissions);
 
         ibSkip.setOnClickListener(v -> lobby.getLooper().skip(null));
+        ibSkipLarge.setOnClickListener(v -> lobby.getLooper().skip(null));
 
         if (lobby.getPlayerState() == Lobby.PLAYBACK_PLAYING) {
             ibControl.setOnClickListener((v) -> lobby.getLooper().pause(null));
             ibControl.setImageResource(R.drawable.ic_round_pause_24);
+
+            ibControlLarge.setOnClickListener((v) -> lobby.getLooper().pause(null));
+            ibControlLarge.setImageResource(R.drawable.ic_round_pause_24);
         } else {
             ibControl.setOnClickListener((v) -> lobby.getLooper().play(null));
             ibControl.setImageResource(R.drawable.ic_round_play_arrow_24);
+
+            ibControlLarge.setOnClickListener((v) -> lobby.getLooper().play(null));
+            ibControlLarge.setImageResource(R.drawable.ic_round_play_arrow_24);
         }
     }
 

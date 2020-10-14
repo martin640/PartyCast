@@ -48,7 +48,7 @@ public class ServerLobbyService extends Service implements LobbyEventListener {
     public static final int ARTWORK_SERVER_PORT = 10785;
 
     private ServerLobbyServiceBinder binder = new ServerLobbyServiceBinder();
-    private ServerLobby lobby;
+    private AndroidServerLobby lobby;
     private NotificationCompat.Builder notificationBuilder;
 
     private ExoPlayer player;

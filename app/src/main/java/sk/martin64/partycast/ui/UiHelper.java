@@ -1,5 +1,6 @@
 package sk.martin64.partycast.ui;
 
+import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -8,6 +9,7 @@ import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.method.LinkMovementMethod;
 import android.text.style.URLSpan;
+import android.util.DisplayMetrics;
 import android.view.View;
 import android.widget.TextView;
 
@@ -16,6 +18,14 @@ import java.text.StringCharacterIterator;
 import java.util.Locale;
 
 public final class UiHelper {
+
+    public static float convertDpToPixel(float dp, Context context){
+        return dp * ((float) context.getResources().getDisplayMetrics().densityDpi / DisplayMetrics.DENSITY_DEFAULT);
+    }
+
+    public static float convertPixelsToDp(float px, Context context){
+        return px / ((float) context.getResources().getDisplayMetrics().densityDpi / DisplayMetrics.DENSITY_DEFAULT);
+    }
 
     public static CharSequence span(CharSequence toSpan, Object span) {
         SpannableString s = new SpannableString(toSpan);
@@ -55,6 +65,19 @@ public final class UiHelper {
             ci.next();
         }
         return String.format(Locale.getDefault(), "%.1f %cB", bytes / 1000.0, ci.current());
+    }
+
+    public static String timeFormat(long milliseconds) {
+        long seconds = milliseconds / 1000;
+        int hours = (int) (seconds / 3600);
+        seconds = seconds % 3600;
+        int minutes = (int) (seconds / 60);
+        seconds = seconds % 60;
+
+        if (hours > 0)
+            return String.format(Locale.getDefault(), "%s:%02d:%02d", hours, minutes, seconds);
+        else
+            return String.format(Locale.getDefault(), "%s:%02d", minutes, seconds);
     }
 
     public static void runOnUiCompact(Runnable runnable) {

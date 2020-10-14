@@ -45,4 +45,11 @@ public interface QueueLooper {
      * @return parent lobby
      */
     Lobby getContext();
+
+    default RemoteMedia getNowPlaying() {
+        Queue q = getCurrentQueue();
+        if (q == null) return null;
+        RemoteMedia np = q.getCurrentlyPlaying();
+        return np;
+    }
 }

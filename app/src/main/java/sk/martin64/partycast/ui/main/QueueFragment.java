@@ -73,7 +73,7 @@ public class QueueFragment extends Fragment implements LobbyEventListener {
 
     @Override
     public void onDestroy() {
-        unbinder.unbind();
+        if (unbinder != null) unbinder.unbind();
         super.onDestroy();
     }
 

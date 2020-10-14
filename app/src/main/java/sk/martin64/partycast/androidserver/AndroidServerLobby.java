@@ -5,6 +5,7 @@ import android.content.ContentResolver;
 import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.ExoPlayer;
 import com.google.android.exoplayer2.Player;
+import com.google.android.exoplayer2.audio.AudioListener;
 import com.google.android.exoplayer2.upstream.DataSource;
 
 import partycast.model.LobbyEventListener;
@@ -16,6 +17,8 @@ public class AndroidServerLobby extends ServerLobby {
     ExoPlayer player;
     DataSource.Factory dataSourceFactory;
     ServerQueueLooper queueLooper;
+
+    int sessionId;
 
     public AndroidServerLobby(String title, int port, String username, LobbyEventListener listener,
                               ExoPlayer player, DataSource.Factory dataSourceFactory, int artworkProviderPort, ContentResolver contentResolver) {
@@ -38,6 +41,12 @@ public class AndroidServerLobby extends ServerLobby {
                 error.printStackTrace();
             }
         });
+        this.player.getAudioComponent().addAudioListener(new AudioListener() {
+            @Override
+            public void onAudioSessionId(int audioSessionId) {
+                AndroidServerLobby.this.sessionId = audioSessionId;
+            }
+        });
 
         this.queueLooper = new ServerQueueLooper(this);
 
@@ -46,6 +55,10 @@ public class AndroidServerLobby extends ServerLobby {
 
     void setPlaybackState(int state) {
         playbackState = state;
+    }
+
+    public int getMediaSessionId() {
+        return sessionId;
     }
 
     @Override
