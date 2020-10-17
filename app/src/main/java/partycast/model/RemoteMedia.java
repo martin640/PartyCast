@@ -67,7 +67,7 @@ public interface RemoteMedia {
 
                 RemoteMedia first = pending.get(0);
                 long relativePoint = first.getStartTime() + first.getDuration();
-                for (int i = 1; i < pending.size(); i++) {
+                for (int i = 1; i < (pending.size() - 1); i++) {
                     relativePoint += pending.get(i).getDuration();
                 }
                 return relativePoint;

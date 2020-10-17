@@ -5,15 +5,15 @@
         android:id="@+id/navigation_home"
         android:icon="@drawable/ic_round_device_hub_24"
         android:title="@string/lobby" />
+    <item
+        android:id="@+id/navigation_library"
+        android:icon="@drawable/ic_round_library_music_24"
+        android:title="@string/library" />
 
     <item
         android:id="@+id/navigation_queue"
         android:icon="@drawable/ic_round_queue_music_24"
         android:title="@string/queue" />
-    <item
-        android:id="@+id/navigation_library"
-        android:icon="@drawable/ic_round_library_music_24"
-        android:title="@string/library" />
 
     <item
         android:id="@+id/navigation_settings"

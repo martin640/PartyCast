@@ -80,6 +80,8 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
     TextView controlProgressLeft;
     @BindView(R.id.control_progress_right)
     TextView controlProgressRight;
+    @BindView(R.id.divider2)
+    View divider2;
 
     private int navViewMeasuredHeight = 0;
     private Lobby lobby;
@@ -105,7 +107,10 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
             @Override
             public void onPanelSlide(View panel, float slideOffset) {
                 slideOffset = Math.max(slideOffset, 0);
-                navView.setTranslationY((slideOffset / 0.5f) * navViewMeasuredHeight);
+
+                float navViewTranslation = (slideOffset / 0.5f) * navViewMeasuredHeight;
+                navView.setTranslationY(navViewTranslation);
+                divider2.setTranslationY(navViewTranslation);
 
                 ViewGroup.LayoutParams ivArtworkParams = ivArtwork.getLayoutParams();
                 ivArtworkParams.width = ivArtworkParams.height = (int) (dp45 + (slideOffset * dp45));

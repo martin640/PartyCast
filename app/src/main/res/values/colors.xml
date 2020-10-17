@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#056674</color>
-    <color name="colorPrimaryDark">#e0ece4</color>
-    <color name="colorActionBar">#e0ece4</color>
-    <color name="colorActionBarFade">#99e0ece4</color>
-    <color name="colorAccent">#ff4b5c</color>
+    <color name="colorPrimary">#1f3c88</color>
+    <color name="colorPrimaryDark">#1f3c88</color>
+    <color name="colorPrimaryFaded">#991f3c88</color>
+    <color name="colorAccent">#ee6f57</color>
 </resources>

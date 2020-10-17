@@ -27,6 +27,7 @@ import partycast.model.Lobby;
 import partycast.model.LobbyEventListener;
 import partycast.model.LobbyMember;
 import sk.martin64.partycast.R;
+import sk.martin64.partycast.androidserver.AndroidServerLobby;
 import sk.martin64.partycast.utils.LobbyCoordinatorService;
 
 public class SettingsFragment extends Fragment implements LobbyEventListener {
@@ -49,41 +50,45 @@ public class SettingsFragment extends Fragment implements LobbyEventListener {
         lobby.addEventListener(this);
 
         settings = new ArrayList<>();
+        adapter = new SettingsAdapter(lobby, settings);
+
         settings.add(new SettingsItem("Lobby name", lobby.getTitle(), Lobby.checkPermission(lobby.getClient(), LobbyMember.PERMISSIONS_MOD), v -> {
             //lobby.changeTitle(inputLobbyName.getEditText().getText().toString(), null);
         }));
-        settings.add(new SettingsItem("Server IP addresses", "Loading", false, v -> {}));
 
-        adapter = new SettingsAdapter(lobby, settings);
+        if (lobby instanceof AndroidServerLobby) {
+            settings.add(new SettingsItem("Server IP addresses", "Loading", false, v -> {}));
+
+            Executors.newSingleThreadExecutor().submit(() -> {
+                try {
+                    StringBuilder builder = new StringBuilder();
+                    Enumeration<NetworkInterface> netifenum = NetworkInterface.getNetworkInterfaces();
+                    while (netifenum.hasMoreElements()) {
+                        NetworkInterface netif = netifenum.nextElement();
+
+                        Enumeration<InetAddress> addrenum = netif.getInetAddresses();
+                        while (addrenum.hasMoreElements()) {
+                            InetAddress addr = addrenum.nextElement();
+
+                            if (addr.isLoopbackAddress()) continue;
+
+                            builder.append(addr.getHostAddress()).append('\n');
+                        }
+                    }
+
+                    rv.post(() -> {
+                        settings.get(1).content = builder.toString();
+                        adapter.notifyItemChanged(1);
+                    });
+                } catch (SocketException e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+
         rv.setLayoutManager(new LinearLayoutManager(getContext(), RecyclerView.VERTICAL, false));
         rv.setItemAnimator(new DefaultItemAnimator());
         rv.setAdapter(adapter);
-
-        Executors.newSingleThreadExecutor().submit(() -> {
-            try {
-                StringBuilder builder = new StringBuilder();
-                Enumeration<NetworkInterface> netifenum = NetworkInterface.getNetworkInterfaces();
-                while (netifenum.hasMoreElements()) {
-                    NetworkInterface netif = netifenum.nextElement();
-
-                    Enumeration<InetAddress> addrenum = netif.getInetAddresses();
-                    while (addrenum.hasMoreElements()) {
-                        InetAddress addr = addrenum.nextElement();
-
-                        if (addr.isLoopbackAddress()) continue;
-
-                        builder.append(addr.getHostAddress()).append('\n');
-                    }
-                }
-
-                rv.post(() -> {
-                    settings.get(1).content = builder.toString();
-                    adapter.notifyItemChanged(1);
-                });
-            } catch (SocketException e) {
-                e.printStackTrace();
-            }
-        });
 
         return root;
     }
