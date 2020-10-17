@@ -11,4 +11,7 @@ public interface LobbyEventListener {
     default void onLobbyStateChanged(Lobby lobby) {}
     default void onLooperUpdated(Lobby lobby, QueueLooper looper) {}
     default void onLibraryUpdated(Lobby lobby, LibraryProvider libraryProvider) {}
+
+    // android specific events
+    default void onInitializationFailed(Lobby lobby, Exception cause) {}
 }

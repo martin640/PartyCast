@@ -8,28 +8,22 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
 
-import org.java_websocket.WebSocket;
-import org.java_websocket.client.WebSocketClient;
-import org.java_websocket.exceptions.InvalidDataException;
-import org.java_websocket.handshake.ClientHandshake;
-import org.java_websocket.handshake.ServerHandshake;
-
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
 
-import sk.martin64.partycast.BuildConfig;
-import sk.martin64.partycast.ClientLobbyService;
-import sk.martin64.partycast.ServerLobbyService;
 import partycast.model.LibraryProvider;
 import partycast.model.Lobby;
 import partycast.model.LobbyEventListener;
 import partycast.model.LobbyMember;
 import partycast.model.QueueLooper;
+import sk.martin64.partycast.ClientLobbyService;
+import sk.martin64.partycast.ServerLobbyService;
 
 import static android.content.Context.BIND_AUTO_CREATE;
-import static partycast.client.ClientLobby.VERSION_NAME;
 
 public class LobbyCoordinatorService implements LobbyEventListener {
 
@@ -61,37 +55,27 @@ public class LobbyCoordinatorService implements LobbyEventListener {
     /**
      * Get lobby status without making permanent connection
      */
-    public void head(Activity activity, String server, Callback<Lobby> callback) {
-        try {
-            WebSocketClient client = new WebSocketClient(new URI(String.format("ws://%s:%s", server, ServerLobbyService.SERVER_PORT))) {
-                @Override
-                public void onOpen(ServerHandshake handshakedata) {}
+    public void head(String server, Callback<Lobby> callback) {
+        Executors.newSingleThreadExecutor().submit(() -> {
+            HttpURLConnection urlConnection = null;
+            System.setProperty("http.keepAlive", "false");
+            try {
+                URL url = new URL(String.format("http://%s:%s", server, ServerLobbyService.SERVER_PORT));
+                urlConnection = (HttpURLConnection) url.openConnection();
+                urlConnection.setRequestMethod("HEAD");
 
-                @Override
-                public void onMessage(String message) {}
+                String lobbyTitle = urlConnection.getHeaderField("PartyCast-Lobby-Name");
+                callback.onSuccess(new AbstractHeadLobby(lobbyTitle, new ArrayList<>(), null));
 
-                @Override
-                public void onWebsocketHandshakeReceivedAsClient(WebSocket conn, ClientHandshake request, ServerHandshake response) throws InvalidDataException {
-                    String lobbyTitle = response.getFieldValue("PartyCast-Lobby-Name");
-                    conn.close();
-
-                    callback.onSuccess(new AbstractHeadLobby(lobbyTitle, new ArrayList<>(), null));
+                urlConnection.getInputStream().close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                if (urlConnection != null) {
+                    urlConnection.disconnect();
                 }
-
-                @Override
-                public void onClose(int code, String reason, boolean remote) { }
-
-                @Override
-                public void onError(Exception ex) {
-                    callback.onError(ex);
-                }
-            };
-            client.removeHeader("User-Agent");
-            client.addHeader("User-Agent", String.format("PartyCast/%s ClientLobby/%s", BuildConfig.VERSION_NAME, VERSION_NAME));
-            client.connect();
-        } catch (URISyntaxException e) {
-            callback.onError(e);
-        }
+            }
+        });
     }
 
     public void connectClient(Activity activity, String server, String username, Callback<Lobby> callback) {
@@ -213,6 +197,12 @@ public class LobbyCoordinatorService implements LobbyEventListener {
                 public void onError(Lobby lobby, Exception e) {
                     lobby.removeEventListener(this);
                     activity.runOnUiThread(() -> handleError(activity, connection, e, callback));
+                }
+
+                @Override
+                public void onInitializationFailed(Lobby lobby, Exception cause) {
+                    lobby.removeEventListener(this);
+                    activity.runOnUiThread(() -> handleError(activity, connection, cause, callback));
                 }
             });
         }

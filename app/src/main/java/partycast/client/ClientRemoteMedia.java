@@ -13,7 +13,7 @@ public class ClientRemoteMedia implements RemoteMedia {
     private LobbyMember requester;
     private String title, artist, artwork;
     private int id;
-    private long length, start;
+    private long length;
     private ClientQueue queue;
 
     long lastKnownProgress, lastUpdate;
@@ -23,6 +23,7 @@ public class ClientRemoteMedia implements RemoteMedia {
         update(data);
     }
 
+    @SuppressWarnings("ConstantConditions")
     void update(JSONObject data) {
         if ("RemoteMedia".equals(data.optString("class")) && data.has("values")) {
             try {
@@ -35,14 +36,13 @@ public class ClientRemoteMedia implements RemoteMedia {
                     this.artwork = this.artwork.replaceAll("\\[HOST]", queue.getLooper().getContext().getHost().getAddressString());
                 }
                 this.length = values.optLong("length");
-                this.start = values.optLong("start");
                 this.id = values.optInt("id");
                 int requester = values.optInt("requester");
-                this.requester = queue.getLooper().getContext().getMemberById(requester);
+                ClientLobby clientLobby = (ClientLobby) queue.getLooper().getContext();
+                this.requester = clientLobby.findMemberInCache(requester);
 
-                this.lastKnownProgress = values.optLong("lastKnownProgress");
-                if (this.lastKnownProgress > 0)
-                    this.lastUpdate = System.currentTimeMillis();
+                this.lastKnownProgress = values.optLong("progress");
+                this.lastUpdate = System.currentTimeMillis();
             } catch (JSONException e) {
                 e.printStackTrace();
             }
@@ -81,20 +81,16 @@ public class ClientRemoteMedia implements RemoteMedia {
 
     @Override
     public long getStartTime() {
-        return RemoteMedia.calculateStart(this, start);
+        return RemoteMedia.calculateStart(this);
     }
 
-    private long getActualProgress() {
+    @Override
+    public long getProgressReal() {
         if (lastUpdate == 0) return 0;
 
         if (getQueue().getLooper().getContext().getPlayerState() == Lobby.PLAYBACK_PLAYING) {
             return lastKnownProgress + (System.currentTimeMillis() - lastUpdate);
         } else return lastKnownProgress;
-    }
-
-    @Override
-    public float getProgress() {
-        return length > 0 ? ((float) getActualProgress() / length) : 0f;
     }
 
     @Override

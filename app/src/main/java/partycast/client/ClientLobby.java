@@ -15,13 +15,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeoutException;
 
-import sk.martin64.partycast.BuildConfig;
 import partycast.model.LibraryProvider;
 import partycast.model.Lobby;
 import partycast.model.LobbyEventListener;
 import partycast.model.LobbyMember;
 import partycast.model.QueueLooper;
+import sk.martin64.partycast.BuildConfig;
 import sk.martin64.partycast.ui.UiHelper;
 import sk.martin64.partycast.utils.Callback;
 
@@ -31,7 +33,7 @@ public class ClientLobby implements Lobby {
 
     WebSocketClient socketClient;
     String title;
-    List<ClientLobbyMember> members;
+    List<ClientLobbyMember> members, membersCache;
     int hostId, clientId;
     ClientQueueLooper looper;
     ClientRemoteLibraryProvider libraryProvider;
@@ -42,9 +44,11 @@ public class ClientLobby implements Lobby {
     int requestsIdPool;
 
     int state, playerState;
+    boolean stateLoaded;
 
     public ClientLobby(String server, String clientName, LobbyEventListener listener) {
         this.members = new ArrayList<>();
+        this.membersCache = new ArrayList<>();
         this.listeners = new ArrayList<>();
         this.listeners.add(listener);
         this.requests = new HashMap<>();
@@ -60,7 +64,25 @@ public class ClientLobby implements Lobby {
             @Override
             public void onOpen(ServerHandshake handshakeData) {
                 state = STATE_OPEN;
-                System.err.println("LobbyConnection established");
+                System.err.println("[WebSocketClient::onOpen] Websocket established");
+
+                Executors.newSingleThreadExecutor().submit(() -> {
+                    System.err.println("[WebSocketClient::onOpen] Waiting 5 seconds for initial block of data from sever...");
+                    try {
+                        Thread.sleep(5000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        System.err.println("[WebSocketClient::onOpen] Thread has been interrupted. Checking now...");
+                    }
+
+                    if (!stateLoaded) {
+                        System.err.println("[WebSocketClient::onOpen] Lobby has not been initialized after 5 seconds. Aborting connection...");
+                        ClientLobby.this.close();
+
+                        for (LobbyEventListener l : listeners)
+                            l.onInitializationFailed(ClientLobby.this, new TimeoutException("Lobby initialization timeout"));
+                    }
+                });
             }
 
             @Override
@@ -154,7 +176,9 @@ public class ClientLobby implements Lobby {
 
                 JSONArray membersArray = values.getJSONArray("members");
                 for (int i = 0; i < membersArray.length(); i++) {
-                    this.members.add(new ClientLobbyMember(membersArray.getJSONObject(i), this));
+                    ClientLobbyMember m = new ClientLobbyMember(membersArray.getJSONObject(i), this);
+                    this.members.add(m);
+                    this.membersCache.add(m);
                 }
 
                 this.looper = new ClientQueueLooper(values.getJSONObject("looper"), this);
@@ -166,58 +190,76 @@ public class ClientLobby implements Lobby {
     }
 
     private void handleEvent(JSONObject messageData, String event) {
-        if (event.equals("Event.USER_JOINED")) {
-            ClientLobbyMember d = new ClientLobbyMember(messageData, this);
-            members.add(d);
+        switch (event) {
+            case "Event.USER_JOINED": {
+                ClientLobbyMember d = new ClientLobbyMember(messageData, this);
+                members.add(d);
+                membersCache.add(d);
 
-            for (LobbyEventListener l : listeners)
-                l.onUserJoined(this, d);
-        } else if (event.equals("Event.USER_LEFT")) {
-            ClientLobbyMember d = new ClientLobbyMember(messageData, this);
-            for (ListIterator<ClientLobbyMember> it = members.listIterator(); it.hasNext(); ) {
-                ClientLobbyMember member = it.next();
-                if (member.getId() == d.getId()) {
-                    it.remove();
-                }
+                for (LobbyEventListener l : listeners)
+                    l.onUserJoined(this, d);
+                break;
             }
-
-            for (LobbyEventListener l : listeners)
-                l.onUserLeft(this, d);
-        } else if (event.equals("Event.USER_UPDATED")) {
-            ClientLobbyMember d = new ClientLobbyMember(messageData, this);
-            for (ClientLobbyMember member : members) {
-                if (member.getId() == d.getId()) {
-                    member.update(messageData);
-
-                    for (LobbyEventListener l : listeners)
-                        l.onUserUpdated(this, d);
-                    break;
+            case "Event.USER_LEFT": {
+                ClientLobbyMember d = new ClientLobbyMember(messageData, this);
+                for (ListIterator<ClientLobbyMember> it = members.listIterator(); it.hasNext(); ) {
+                    ClientLobbyMember member = it.next();
+                    if (member.getId() == d.getId()) {
+                        it.remove();
+                    }
                 }
+
+                for (LobbyEventListener l : listeners)
+                    l.onUserLeft(this, d);
+                break;
             }
-        } else if (event.equals("Event.LOBBY_UPDATED")) {
-            if ("Lobby".equals(messageData.optString("class")) && messageData.has("values")) {
-                try {
-                    JSONObject values = messageData.getJSONObject("values");
+            case "Event.USER_UPDATED": {
+                ClientLobbyMember d = new ClientLobbyMember(messageData, this);
+                for (ClientLobbyMember member : members) {
+                    if (member.getId() == d.getId()) {
+                        member.update(messageData);
 
-                    this.title = values.optString("title");
-                    this.playerState = values.optInt("playerState");
-                    this.looper.update(values.getJSONObject("looper"));
-
-                    for (LobbyEventListener l : listeners)
-                        l.onLobbyStateChanged(this);
-                } catch (JSONException e) {
-                    e.printStackTrace();
+                        for (LobbyEventListener l : listeners)
+                            l.onUserUpdated(this, d);
+                        break;
+                    }
                 }
-            } else throw new IllegalArgumentException("Supplied data is not for Lobby");
-        } else if (event.equals("Event.QUEUE_UPDATED")) {
-            this.looper.update(messageData);
-            for (LobbyEventListener l : listeners)
-                l.onLooperUpdated(this, this.looper);
-        } else if (event.equals("Event.LIBRARY_UPDATED")) {
-            this.libraryProvider.update(messageData);
-            for (LobbyEventListener l : listeners)
-                l.onLibraryUpdated(this, this.libraryProvider);
+                break;
+            }
+            case "Event.LOBBY_UPDATED":
+                if ("Lobby".equals(messageData.optString("class")) && messageData.has("values")) {
+                    try {
+                        JSONObject values = messageData.getJSONObject("values");
+
+                        this.title = values.optString("title");
+                        this.playerState = values.optInt("playerState");
+                        this.looper.update(values.getJSONObject("looper"));
+
+                        for (LobbyEventListener l : listeners)
+                            l.onLobbyStateChanged(this);
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                } else throw new IllegalArgumentException("Supplied data is not for Lobby");
+                break;
+            case "Event.QUEUE_UPDATED":
+                this.looper.update(messageData);
+                for (LobbyEventListener l : listeners)
+                    l.onLooperUpdated(this, this.looper);
+                break;
+            case "Event.LIBRARY_UPDATED":
+                this.libraryProvider.update(messageData);
+                for (LobbyEventListener l : listeners)
+                    l.onLibraryUpdated(this, this.libraryProvider);
+                break;
         }
+    }
+
+    ClientLobbyMember findMemberInCache(int id) {
+        for (ClientLobbyMember m : membersCache) {
+            if (m.getId() == id) return m;
+        }
+        return null;
     }
 
     @Override

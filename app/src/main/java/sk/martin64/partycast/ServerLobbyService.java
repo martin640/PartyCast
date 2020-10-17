@@ -12,6 +12,7 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
+import android.media.audiofx.AudioEffect;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
@@ -160,6 +161,7 @@ public class ServerLobbyService extends Service implements LobbyEventListener {
                 Log.w("SLService", "ServerLobby claims playback state == playing/paused but currently playing media is null; skipping notification update");
                 return;
             }
+            openAudioFx();
 
             StateLock<RemoteMedia> nowPlayingLock = new StateLock<>(nowPlaying);
 
@@ -195,6 +197,20 @@ public class ServerLobbyService extends Service implements LobbyEventListener {
         }
 
         notificationManager.notify(1, notificationBuilder.build());
+    }
+
+    public void openAudioFx() {
+        Intent i = new Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION);
+        i.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, getPackageName());
+        i.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, lobby.getMediaSessionId());
+        this.sendBroadcast(i);
+    }
+
+    public void closeAudioFx() {
+        Intent k = new Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION);
+        k.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, getPackageName());
+        k.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, lobby.getMediaSessionId());
+        this.sendBroadcast(k);
     }
 
     @Override

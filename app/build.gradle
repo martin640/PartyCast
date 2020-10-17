@@ -8,8 +8,8 @@ android {
         applicationId "sk.martin64.partycast"
         minSdkVersion 23
         targetSdkVersion 30
-        versionCode 16
-        versionName "1.1.5-git"
+        versionCode 17
+        versionName "1.1.6-git"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

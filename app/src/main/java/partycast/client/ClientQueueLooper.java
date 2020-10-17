@@ -16,6 +16,7 @@ import partycast.model.Lobby;
 import partycast.model.LobbyMember;
 import partycast.model.Queue;
 import partycast.model.QueueLooper;
+import partycast.model.RemoteMedia;
 import sk.martin64.partycast.utils.Callback;
 
 public class ClientQueueLooper implements QueueLooper {
@@ -148,6 +149,35 @@ public class ClientQueueLooper implements QueueLooper {
     @Override
     public List<Queue> getAll() {
         return Collections.unmodifiableList(rounds);
+    }
+
+    @NonNull
+    @Override
+    public List<RemoteMedia> range(RemoteMedia first, RemoteMedia last) {
+        if (first == null && last == null) {
+            List<RemoteMedia> result = new ArrayList<>();
+
+            for (Queue queue : rounds) result.addAll(queue.getAll());
+
+            return result;
+        } else {
+            List<RemoteMedia> result = new ArrayList<>();
+            boolean startFound = first == null;
+
+            for (Queue queue : rounds) {
+                for (RemoteMedia m : queue.getAll()) {
+                    if (startFound) result.add(m);
+                    else if (m == first) {
+                        startFound = true;
+                        result.add(m);
+                    }
+
+                    if (m == last) return result;
+                }
+            }
+
+            return result;
+        }
     }
 
     @NonNull

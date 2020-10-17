@@ -1,6 +1,5 @@
 package partycast.model;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public interface RemoteMedia {
@@ -35,21 +34,35 @@ public interface RemoteMedia {
      */
     long getStartTime();
 
-    float getProgress();
+    /**
+     * @return real progress in milliseconds
+     */
+    long getProgressReal();
+
+    default float getProgress() {
+        long length = getDuration(), progress = getProgressReal();
+        return length > 0 ? ((float) progress / length) : 0f;
+    }
 
     Queue getQueue();
 
-    static long calculateStart(RemoteMedia media, long actualStart) {
+    static String optRequester(RemoteMedia media) {
+        if (media == null) return "[N/A]";
+        LobbyMember r = media.getRequester();
+        if (r == null) return "[User left]";
+        else return r.getName();
+    }
+
+    static long calculateStart(RemoteMedia media) {
         QueueLooper looper = media.getQueue().getLooper();
         Lobby lobby = looper.getContext();
         if (lobby.getPlayerState() == Lobby.PLAYBACK_PLAYING) {
-            if (actualStart > 0) return actualStart;
+            long progress = media.getProgressReal();
+
+            if (progress > 0) return System.currentTimeMillis() - progress;
             else {
-                List<RemoteMedia> pending = new ArrayList<>();
-                for (Queue queue : looper.getPending()) {
-                    pending.addAll(queue.getPending());
-                }
-                pending = pending.subList(0, pending.indexOf(media));
+                List<RemoteMedia> pending = looper.range(looper.getNowPlaying(), media);
+
                 if (pending.size() == 0) return 0;
 
                 RemoteMedia first = pending.get(0);

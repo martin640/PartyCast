@@ -27,5 +27,5 @@
         android:id="@+id/navigation_settings"
         android:name="sk.martin64.partycast.ui.main.SettingsFragment"
         android:label="@string/settings"
-        tools:layout="@layout/fragment_settings" />
+        tools:layout="@layout/fragment_home" />
 </navigation>

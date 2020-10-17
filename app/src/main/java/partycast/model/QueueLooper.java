@@ -36,6 +36,14 @@ public interface QueueLooper {
     List<Queue> getAll();
 
     /**
+     * @param first starting position of range; Object must be from this queue looper. Provide null if you want first item in looper.
+     * @param last last position of range; Object must be from this queue looper. Provide null if you want last item in looper.
+     * @return queue items in given range
+     */
+    @NonNull
+    List<RemoteMedia> range(RemoteMedia first, RemoteMedia last);
+
+    /**
      * @return current queue and all future queues
      */
     @NonNull
@@ -49,7 +57,6 @@ public interface QueueLooper {
     default RemoteMedia getNowPlaying() {
         Queue q = getCurrentQueue();
         if (q == null) return null;
-        RemoteMedia np = q.getCurrentlyPlaying();
-        return np;
+        return q.getCurrentlyPlaying();
     }
 }

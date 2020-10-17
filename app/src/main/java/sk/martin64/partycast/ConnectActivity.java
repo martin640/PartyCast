@@ -21,6 +21,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
@@ -34,6 +35,8 @@ import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.textfield.TextInputLayout;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InterfaceAddress;
@@ -158,13 +161,23 @@ public class ConnectActivity extends AppCompatActivity {
                     new Callback<Lobby>() {
                         @Override
                         public void onError(Exception e) {
-                            inputServer.setEnabled(true);
-                            inputName.setEnabled(true);
-                            button.setEnabled(true);
-                            itemHost.setEnabled(true);
-                            progressBar.setVisibility(View.GONE);
+                            if (!ConnectActivity.this.isDestroyed()) {
+                                inputServer.setEnabled(true);
+                                inputName.setEnabled(true);
+                                button.setEnabled(true);
+                                itemHost.setEnabled(true);
+                                progressBar.setVisibility(View.GONE);
 
-                            Toast.makeText(ConnectActivity.this, "Failed to connect to the server: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                AlertDialog.Builder builder = new AlertDialog.Builder(ConnectActivity.this);
+                                builder.setTitle("Failed to connect to the server");
+                                if (BuildConfig.DEBUG) {
+                                    StringWriter errors = new StringWriter();
+                                    e.printStackTrace(new PrintWriter(errors));
+                                    builder.setMessage(errors.toString());
+                                } else builder.setMessage(e.getMessage());
+                                builder.setPositiveButton("OK", (dialog, which) -> dialog.dismiss());
+                                builder.show();
+                            }
                         }
 
                         @Override
@@ -278,7 +291,7 @@ public class ConnectActivity extends AppCompatActivity {
                     public void onDiscoverActive(String address, float ping) {
                         System.out.format("Discovered running service on port 22 on device %s\n", address);
 
-                        coordinatorService.head(ConnectActivity.this, address, new Callback<Lobby>() {
+                        coordinatorService.head(address, new Callback<Lobby>() {
                             @Override
                             public void onError(Exception e) {
 
@@ -418,13 +431,23 @@ public class ConnectActivity extends AppCompatActivity {
                         new Callback<Lobby>() {
                             @Override
                             public void onError(Exception e) {
-                                inputServer.setEnabled(true);
-                                inputName.setEnabled(true);
-                                button.setEnabled(true);
-                                itemHost.setEnabled(true);
-                                progressBar.setVisibility(View.GONE);
+                                if (!ConnectActivity.this.isDestroyed()) {
+                                    inputServer.setEnabled(true);
+                                    inputName.setEnabled(true);
+                                    button.setEnabled(true);
+                                    itemHost.setEnabled(true);
+                                    progressBar.setVisibility(View.GONE);
 
-                                Toast.makeText(ConnectActivity.this, "Failed to connect to the server: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                    AlertDialog.Builder builder = new AlertDialog.Builder(ConnectActivity.this);
+                                    builder.setTitle("Failed to connect to the server");
+                                    if (BuildConfig.DEBUG) {
+                                        StringWriter errors = new StringWriter();
+                                        e.printStackTrace(new PrintWriter(errors));
+                                        builder.setMessage(errors.toString());
+                                    } else builder.setMessage(e.getMessage());
+                                    builder.setPositiveButton("OK", (dialog, which) -> dialog.dismiss());
+                                    builder.show();
+                                }
                             }
 
                             @Override

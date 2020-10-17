@@ -133,7 +133,6 @@
         android:background="@drawable/control_bg"
         android:clickable="true"
         android:focusable="true"
-        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="@+id/ib_control_large"
         app:layout_constraintEnd_toStartOf="@+id/ib_control_large"
         app:layout_constraintTop_toTopOf="@+id/ib_control_large"

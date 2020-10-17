@@ -122,7 +122,7 @@ public class QueueFragment extends Fragment implements LobbyEventListener {
 
             holder.title.setText(media.getTitle());
             holder.artist.setText(media.getArtist());
-            holder.about.setText(String.format("Requested by %s", media.getRequester().getName()));
+            holder.about.setText(String.format("Requested by %s", RemoteMedia.optRequester(media)));
 
             Glide.with(holder.artwork)
                     .load(media.getArtwork())

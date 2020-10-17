@@ -1,6 +1,8 @@
 package sk.martin64.partycast;
 
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.media.audiofx.AudioEffect;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
@@ -34,6 +36,7 @@ import partycast.model.Lobby;
 import partycast.model.LobbyEventListener;
 import partycast.model.LobbyMember;
 import partycast.model.RemoteMedia;
+import sk.martin64.partycast.androidserver.AndroidServerLobby;
 import sk.martin64.partycast.ui.UiHelper;
 import sk.martin64.partycast.utils.Callback;
 import sk.martin64.partycast.utils.LobbyCoordinatorService;
@@ -148,7 +151,7 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
                 } else {
                     RemoteMedia nowPlaying = lobby.getLooper().getCurrentQueue().getCurrentlyPlaying();
                     if (nowPlaying != null) {
-                        long progressReal = (long) (nowPlaying.getDuration() * nowPlaying.getProgress());
+                        long progressReal = nowPlaying.getProgressReal();
                         runOnUiThread(() -> {
                             circularProgressBar.setProgress(nowPlaying.getProgress());
                             controlProgress.setMax((int) (nowPlaying.getDuration() / 1000));
@@ -174,7 +177,6 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
             }
         });
 
-        /* Equalizer not working with ExoPlayer2
         ibEqualizerLarge.setOnClickListener((v) -> {
             if (lobby instanceof AndroidServerLobby) {
                 AndroidServerLobby androidServerLobby = (AndroidServerLobby) lobby;
@@ -183,6 +185,7 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
                 if (sessionId == AudioEffect.ERROR_BAD_VALUE) {
                     Toast.makeText(this, "Session ID is not available. Make sure playback has started.", Toast.LENGTH_SHORT).show();
                 } else {
+                    System.err.format("SESSION ID: %s\n", sessionId);
                     try {
                         final Intent effects = new Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL);
                         effects.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, sessionId);
@@ -193,9 +196,9 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
                     }
                 }
             } else {
-                Toast.makeText(this, "You must be host to access equalizer panel", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Equalizer is not available for current session", Toast.LENGTH_SHORT).show();
             }
-        });*/
+        });
     }
 
     private void updateMiniPlayer() {
@@ -222,7 +225,7 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
 
             tvTitle.setText(nowPlaying.getTitle());
             tvArtist.setText(nowPlaying.getArtist());
-            tvRequestedBy.setText(String.format("Requested by %s", nowPlaying.getRequester().getName()));
+            tvRequestedBy.setText(String.format("Requested by %s", RemoteMedia.optRequester(nowPlaying)));
 
             tvTitle.setVisibility(View.VISIBLE);
             tvArtist.setVisibility(View.VISIBLE);

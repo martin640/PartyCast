@@ -25,8 +25,10 @@ import partycast.model.LobbyEventListener;
 import partycast.model.LobbyMember;
 import partycast.model.Queue;
 import partycast.model.QueueLooper;
+import partycast.model.RemoteMedia;
 import partycast.server.JSONable;
 import partycast.server.ServerLobbyMember;
+import sk.martin64.partycast.ui.UiHelper;
 import sk.martin64.partycast.utils.Callback;
 
 public class ServerQueueLooper implements QueueLooper, JSONable {
@@ -123,99 +125,105 @@ public class ServerQueueLooper implements QueueLooper, JSONable {
 
     @Override
     public void play(Callback<QueueLooper> callback) {
-        int playerState = lobby.getPlayerState();
-        if (playerState == Lobby.PLAYBACK_PAUSED) {
+        UiHelper.runOnUiCompact(() -> {
+            int playerState = lobby.getPlayerState();
+            if (playerState == Lobby.PLAYBACK_PAUSED) {
+                ServerQueue currentQueue = (ServerQueue) getCurrentQueue();
+                if (currentQueue != null) {
+                    ServerLocalAudioFileRef ref = (ServerLocalAudioFileRef) currentQueue.getCurrentlyPlaying();
+                    if (ref != null) {
+                        ref.start = System.currentTimeMillis() - lobby.player.getCurrentPosition();
+                        ref.lastKnownProgress = lobby.player.getCurrentPosition();
+                        ref.lastUpdate = System.currentTimeMillis();
+                    }
+                }
+
+                lobby.player.setPlayWhenReady(true);
+                lobby.setPlaybackState(Lobby.PLAYBACK_PLAYING);
+
+                if (callback != null) callback.onSuccess(this);
+                broadcastLobbyUpdate();
+            } else if (playerState == Lobby.PLAYBACK_READY) {
+                skip(callback);
+            } else callback.onError(new Exception("Player is already playing"));
+        });
+    }
+
+    @Override
+    public void pause(Callback<QueueLooper> callback) {
+        UiHelper.runOnUiCompact(() -> {
+            lobby.player.setPlayWhenReady(false);
+            lobby.setPlaybackState(Lobby.PLAYBACK_PAUSED);
+
             ServerQueue currentQueue = (ServerQueue) getCurrentQueue();
             if (currentQueue != null) {
                 ServerLocalAudioFileRef ref = (ServerLocalAudioFileRef) currentQueue.getCurrentlyPlaying();
                 if (ref != null) {
-                    ref.start = System.currentTimeMillis() - lobby.player.getCurrentPosition();
                     ref.lastKnownProgress = lobby.player.getCurrentPosition();
                     ref.lastUpdate = System.currentTimeMillis();
                 }
             }
 
-            lobby.player.setPlayWhenReady(true);
-            lobby.setPlaybackState(Lobby.PLAYBACK_PLAYING);
-
             if (callback != null) callback.onSuccess(this);
             broadcastLobbyUpdate();
-        } else if (playerState == Lobby.PLAYBACK_READY) {
-            skip(callback);
-        } else callback.onError(new Exception("Player is already playing"));
-    }
-
-    @Override
-    public void pause(Callback<QueueLooper> callback) {
-        lobby.player.setPlayWhenReady(false);
-        lobby.setPlaybackState(Lobby.PLAYBACK_PAUSED);
-
-        ServerQueue currentQueue = (ServerQueue) getCurrentQueue();
-        if (currentQueue != null) {
-            ServerLocalAudioFileRef ref = (ServerLocalAudioFileRef) currentQueue.getCurrentlyPlaying();
-            if (ref != null) {
-                ref.lastKnownProgress = lobby.player.getCurrentPosition();
-                ref.lastUpdate = System.currentTimeMillis();
-            }
-        }
-
-        if (callback != null) callback.onSuccess(this);
-        broadcastLobbyUpdate();
+        });
     }
 
     @Override
     public void skip(Callback<QueueLooper> callback) {
-        synchronized (lock) {
-            if (currentRound < 0) { // nothing has been queued yet
-                if (callback != null) callback.onError(new Exception("No more songs in queue"));
-                broadcastLobbyUpdate();
+        UiHelper.runOnUiCompact(() -> {
+            synchronized (lock) {
+                if (currentRound < 0) { // nothing has been queued yet
+                    if (callback != null) callback.onError(new Exception("No more songs in queue"));
+                    broadcastLobbyUpdate();
 
-                return;
-            }
+                    return;
+                }
 
-            ServerQueue currentQueue = rounds.get(currentRound);
-            int nextId = currentQueue.playingIndex + 1;
-            if (nextId >= currentQueue.mediaQueue.size()) { // move to next queue
-                currentRound++;
-                if (currentRound < rounds.size()) {
-                    currentQueue = rounds.get(currentRound);
-                } else {
-                    currentQueue = new ServerQueue(this);
-                    currentQueue.id = currentRound;
-                    rounds.add(currentQueue);
+                ServerQueue currentQueue = rounds.get(currentRound);
+                int nextId = currentQueue.playingIndex + 1;
+                if (nextId >= currentQueue.mediaQueue.size()) { // move to next queue
+                    currentRound++;
+                    if (currentRound < rounds.size()) {
+                        currentQueue = rounds.get(currentRound);
+                    } else {
+                        currentQueue = new ServerQueue(this);
+                        currentQueue.id = currentRound;
+                        rounds.add(currentQueue);
 
+                        a_stopforcefullyfromskip();
+
+                        if (callback != null) callback.onError(new Exception("No more songs in queue"));
+                        broadcastLobbyUpdate();
+
+                        return; // next queue is empty, pause playback ;; keep playingIndex at -1
+                    }
+                }
+                if ((currentQueue.playingIndex + 1) >= currentQueue.mediaQueue.size()) {
                     a_stopforcefullyfromskip();
 
                     if (callback != null) callback.onError(new Exception("No more songs in queue"));
                     broadcastLobbyUpdate();
 
-                    return; // next queue is empty, pause playback ;; keep playingIndex at -1
+                    return; // no next song in queue
                 }
-            }
-            if ((currentQueue.playingIndex + 1) >= currentQueue.mediaQueue.size()) {
-                a_stopforcefullyfromskip();
+                ServerLocalAudioFileRef nextSong = currentQueue.mediaQueue.get(currentQueue.playingIndex + 1);
 
-                if (callback != null) callback.onError(new Exception("No more songs in queue"));
+                MediaSource mediaSource = new ProgressiveMediaSource.Factory(lobby.dataSourceFactory)
+                        .createMediaSource(Uri.fromFile(nextSong.getFile()));
+                lobby.player.setPlayWhenReady(true);
+                lobby.player.prepare(mediaSource);
+                nextSong.start = System.currentTimeMillis();
+                nextSong.lastKnownProgress = 0;
+                nextSong.lastUpdate = System.currentTimeMillis();
+                currentQueue.playingIndex = nextSong.id;
+
+                lobby.setPlaybackState(Lobby.PLAYBACK_PLAYING);
+
+                if (callback != null) callback.onSuccess(this);
                 broadcastLobbyUpdate();
-
-                return; // no next song in queue
             }
-            ServerLocalAudioFileRef nextSong = currentQueue.mediaQueue.get(currentQueue.playingIndex + 1);
-
-            MediaSource mediaSource = new ProgressiveMediaSource.Factory(lobby.dataSourceFactory)
-                    .createMediaSource(Uri.fromFile(nextSong.getFile()));
-            lobby.player.setPlayWhenReady(true);
-            lobby.player.prepare(mediaSource);
-            nextSong.start = System.currentTimeMillis();
-            nextSong.lastKnownProgress = 0;
-            nextSong.lastUpdate = System.currentTimeMillis();
-            currentQueue.playingIndex = nextSong.id;
-
-            lobby.setPlaybackState(Lobby.PLAYBACK_PLAYING);
-
-            if (callback != null) callback.onSuccess(this);
-            broadcastLobbyUpdate();
-        }
+        });
     }
 
     private void a_stopforcefullyfromskip() {
@@ -261,6 +269,35 @@ public class ServerQueueLooper implements QueueLooper, JSONable {
     @Override
     public List<Queue> getPending() {
         return currentRound >= 0 ? Collections.unmodifiableList(rounds.subList(currentRound, rounds.size())) : getAll();
+    }
+
+    @NonNull
+    @Override
+    public List<RemoteMedia> range(RemoteMedia first, RemoteMedia last) {
+        if (first == null && last == null) {
+            List<RemoteMedia> result = new ArrayList<>();
+
+            for (Queue queue : rounds) result.addAll(queue.getAll());
+
+            return result;
+        } else {
+            List<RemoteMedia> result = new ArrayList<>();
+            boolean startFound = first == null;
+
+            for (Queue queue : rounds) {
+                for (RemoteMedia m : queue.getAll()) {
+                    if (startFound) result.add(m);
+                    else if (m == first) {
+                        startFound = true;
+                        result.add(m);
+                    }
+
+                    if (m == last) return result;
+                }
+            }
+
+            return result;
+        }
     }
 
     @Override
