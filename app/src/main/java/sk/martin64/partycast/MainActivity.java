@@ -119,7 +119,7 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
                 swipeBar.setPadding(0, (int) (slideOffset * dp16), 0, 0);
 
                 ViewGroup.MarginLayoutParams ibSkipParams = (ViewGroup.MarginLayoutParams) ibSkip.getLayoutParams();
-                ibSkipParams.rightMargin = (int) (slideOffset * dpControlsOffset);
+                ibSkipParams.rightMargin = (int) (slideOffset * dpControlsOffset) + 4;
                 ibSkip.requestLayout();
 
                 tvTitle.setMaxLines(slideOffset == 1 ? 2 : 1);

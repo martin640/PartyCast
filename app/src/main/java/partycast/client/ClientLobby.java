@@ -183,6 +183,8 @@ public class ClientLobby implements Lobby {
 
                 this.looper = new ClientQueueLooper(values.getJSONObject("looper"), this);
                 this.libraryProvider = new ClientRemoteLibraryProvider(values.getJSONObject("library"), this);
+
+                this.stateLoaded = true;
             } catch (JSONException e) {
                 e.printStackTrace();
             }

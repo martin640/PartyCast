@@ -4,12 +4,12 @@
 
     <item
         android:id="@+id/nav_host"
-        android:icon="@drawable/ic_cast_audio_24"
+        android:icon="@drawable/ic_round_group_add_24"
         android:title="Host server"
         app:showAsAction="ifRoom" />
     <item
         android:id="@+id/nav_scan"
-        android:icon="@drawable/ic_baseline_wifi_tethering_24"
+        android:icon="@drawable/ic_round_refresh_24"
         android:title="Scan network"
         android:visible="false"
         app:showAsAction="ifRoom" />

@@ -11,8 +11,8 @@
       "type": "SINGLE",
       "filters": [],
       "properties": [],
-      "versionCode": 18,
-      "versionName": "1.1.7-git",
+      "versionCode": 19,
+      "versionName": "1.1.8-git",
       "enabled": true,
       "outputFile": "app-release.apk"
     }
