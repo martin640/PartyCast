@@ -168,6 +168,7 @@ public class ServerLobbyService extends Service implements LobbyEventListener {
             UiHelper.runOnUiCompact(() -> {
                 Glide.with(this)
                         .asBitmap()
+                        .centerCrop()
                         .load(nowPlaying.getArtwork())
                         .error(R.drawable.ic_no_artwork)
                         .into(new CustomTarget<Bitmap>() {

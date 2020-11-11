@@ -104,7 +104,7 @@ public final class NetworkScanner {
     }
 
     public static final class NetworkScanController {
-        private ExecutorService main, finalizer;
+        private final ExecutorService main, finalizer;
 
         private NetworkScanController(ExecutorService main, ExecutorService finalizer) {
             this.main = main;
@@ -126,8 +126,30 @@ public final class NetworkScanner {
 
     public static class NetworkIterator implements Iterator<String> {
 
+        public static long IP_MASK = 4294967295L;
+
+        public static short[] addMask(short[] base, int prefixLength) {
+            StringBuilder b = new StringBuilder();
+            short[] a = new short[4];
+            for (int i = 0; i < 32; i++) {
+                b.append(i < prefixLength ? '1' : '0');
+            }
+            String s = b.toString();
+            a[0] = Short.parseShort(s.substring(0, 8), 2);
+            a[1] = Short.parseShort(s.substring(8, 16), 2);
+            a[2] = Short.parseShort(s.substring(16, 24), 2);
+            a[3] = Short.parseShort(s.substring(24, 32), 2);
+
+            a[0] = (short) (base[0] + (255 - a[0]));
+            a[1] = (short) (base[1] + (255 - a[1]));
+            a[2] = (short) (base[2] + (255 - a[2]));
+            a[3] = (short) (base[3] + (255 - a[3]));
+
+            return a;
+        }
+
         private final short[] current;
-        private int i;
+        private int i, a;
         private final int maxHosts;
 
         public NetworkIterator(String networkStart, int prefixLength) {

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/connect_navigation"
+    app:startDestination="@+id/navigation_connect_main">
+
+    <fragment
+        android:id="@+id/navigation_connect_main"
+        android:name="sk.martin64.partycast.ui.connect.ConnectMainFragment"
+        android:label="@string/app_name"
+        tools:layout="@layout/fragment_connect_main" >
+        <action
+            android:id="@+id/action_navigation_connect_main_to_navigation_connect_manually"
+            app:destination="@id/navigation_connect_manually" />
+        <action
+            android:id="@+id/action_navigation_connect_main_to_navigation_connect_scan"
+            app:destination="@id/navigation_connect_scan" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_connect_manually"
+        android:name="sk.martin64.partycast.ui.connect.ConnectManuallyFragment"
+        android:label="@string/connect_manually"
+        tools:layout="@layout/fragment_connect_manually" />
+
+    <fragment
+        android:id="@+id/navigation_connect_scan"
+        android:name="sk.martin64.partycast.ui.connect.ConnectScanFragment"
+        android:label="@string/scan_nearby_devices"
+        tools:layout="@layout/fragment_connect_scan" />
+</navigation>

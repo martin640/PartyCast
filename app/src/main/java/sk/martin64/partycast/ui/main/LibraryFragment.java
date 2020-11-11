@@ -133,6 +133,7 @@ public class LibraryFragment extends Fragment implements LobbyEventListener {
             Glide.with(holder.imageView)
                     .load(media.getImageUrl())
                     .error(R.drawable.ic_no_artwork)
+                    .centerCrop()
                     .into(holder.imageView);
 
             holder.itemView.setOnClickListener(v -> {

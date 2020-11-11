@@ -4,4 +4,6 @@
     <color name="colorPrimaryDark">#1f3c88</color>
     <color name="colorPrimaryFaded">#991f3c88</color>
     <color name="colorAccent">#ee6f57</color>
+
+    <color name="icon_foreground">#A8AEFF</color>
 </resources>

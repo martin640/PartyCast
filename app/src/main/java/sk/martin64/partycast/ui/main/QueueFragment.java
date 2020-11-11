@@ -127,6 +127,7 @@ public class QueueFragment extends Fragment implements LobbyEventListener {
             Glide.with(holder.artwork)
                     .load(media.getArtwork())
                     .error(R.drawable.ic_no_artwork)
+                    .centerCrop()
                     .into(holder.artwork);
 
             if (media.getId() == 0 || position == 0) {

@@ -226,6 +226,7 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
                     .load(nowPlaying.getArtwork())
                     .error(R.drawable.ic_no_artwork)
                     .override(dp45 * 2)
+                    .centerCrop()
                     .into(ivArtwork);
 
             tvTitle.setText(nowPlaying.getTitle());

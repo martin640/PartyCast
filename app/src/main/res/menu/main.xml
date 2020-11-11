@@ -5,6 +5,6 @@
     <item
         android:id="@+id/item_exit"
         android:icon="@drawable/ic_round_exit_to_app_24"
-        android:title="Leave lobby"
+        android:title="Exit"
         app:showAsAction="ifRoom" />
 </menu>
