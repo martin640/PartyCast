@@ -18,29 +18,23 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import butterknife.Unbinder;
-import sk.martin64.partycast.R;
 import partycast.client.ClientLobbyMember;
 import partycast.model.Lobby;
 import partycast.model.LobbyEventListener;
 import partycast.model.LobbyMember;
+import sk.martin64.partycast.R;
 import sk.martin64.partycast.utils.LobbyCoordinatorService;
 
 public class HomeFragment extends Fragment implements LobbyEventListener {
 
-    @BindView(R.id.clients)
-    RecyclerView clients;
-
-    private Unbinder unbinder;
+    private RecyclerView clients;
     private LobbyClientsAdapter adapter;
-
     private Lobby lobby;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
-        View root = inflater.inflate(R.layout.fragment_home, container, false);
-        unbinder = ButterKnife.bind(this, root);
+        clients = (RecyclerView) inflater.inflate(R.layout.fragment_home, container, false);
 
         lobby = LobbyCoordinatorService.getInstance().getActiveLobby();
         lobby.addEventListener(this);
@@ -50,7 +44,7 @@ public class HomeFragment extends Fragment implements LobbyEventListener {
         clients.setItemAnimator(new DefaultItemAnimator());
         clients.setAdapter(adapter);
 
-        return root;
+        return clients;
     }
 
     @Override
@@ -74,7 +68,6 @@ public class HomeFragment extends Fragment implements LobbyEventListener {
     @Override
     public void onDestroy() {
         if (lobby != null) lobby.removeEventListener(this);
-        if (unbinder != null) unbinder.unbind();
         super.onDestroy();
     }
 

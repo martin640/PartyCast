@@ -23,6 +23,7 @@ import partycast.model.Lobby;
 import partycast.model.LobbyEventListener;
 import partycast.model.LobbyMember;
 import partycast.model.QueueLooper;
+import partycast.model.VolumeControl;
 import sk.martin64.partycast.BuildConfig;
 import sk.martin64.partycast.ui.UiHelper;
 import sk.martin64.partycast.utils.Callback;
@@ -37,6 +38,7 @@ public class ClientLobby implements Lobby {
     int hostId, clientId;
     ClientQueueLooper looper;
     ClientRemoteLibraryProvider libraryProvider;
+    ClientVolumeControl volumeControl;
 
     List<LobbyEventListener> listeners;
 
@@ -58,6 +60,8 @@ public class ClientLobby implements Lobby {
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
+
+        this.volumeControl = new ClientVolumeControl(this);
 
         this.state = STATE_CONNECTING;
         this.socketClient = new WebSocketClient(uri) {
@@ -183,6 +187,7 @@ public class ClientLobby implements Lobby {
 
                 this.looper = new ClientQueueLooper(values.getJSONObject("looper"), this);
                 this.libraryProvider = new ClientRemoteLibraryProvider(values.getJSONObject("library"), this);
+                this.volumeControl.update(values.getJSONObject("volumeState"));
 
                 this.stateLoaded = true;
             } catch (JSONException e) {
@@ -236,6 +241,7 @@ public class ClientLobby implements Lobby {
                         this.title = values.optString("title");
                         this.playerState = values.optInt("playerState");
                         this.looper.update(values.getJSONObject("looper"));
+                        this.volumeControl.update(values.getJSONObject("volumeState"));
 
                         for (LobbyEventListener l : listeners)
                             l.onLobbyStateChanged(this);
@@ -251,6 +257,11 @@ public class ClientLobby implements Lobby {
                 break;
             case "Event.LIBRARY_UPDATED":
                 this.libraryProvider.update(messageData);
+                for (LobbyEventListener l : listeners)
+                    l.onLibraryUpdated(this, this.libraryProvider);
+                break;
+            case "Event.VOLUME_UPDATED":
+                this.volumeControl.update(messageData);
                 for (LobbyEventListener l : listeners)
                     l.onLibraryUpdated(this, this.libraryProvider);
                 break;
@@ -325,5 +336,55 @@ public class ClientLobby implements Lobby {
     @Override
     public LobbyMember getClient() {
         return getMemberById(clientId);
+    }
+
+    @Override
+    public VolumeControl getVolumeControl() {
+        return this.volumeControl;
+    }
+
+    private static class ClientVolumeControl implements VolumeControl {
+        private ClientLobby lobby;
+        private float level;
+        private boolean muted;
+
+        public ClientVolumeControl(ClientLobby lobby) {
+            this.lobby = lobby;
+        }
+
+        private void update(JSONObject o) {
+            this.level = (float) o.optDouble("level");
+            this.muted = o.optBoolean("muted");
+        }
+
+        @Override
+        public float getLevel() {
+            return level;
+        }
+
+        @Override
+        public boolean isMuted() {
+            return muted;
+        }
+
+        @Override
+        public void setLevel(float v) {
+            JSONObject update = new JSONObject();
+            try {
+                update.put("level", v);
+                update.put("muted", this.muted);
+            } catch (Exception ignored) {}
+            lobby.request("LobbyCtl.VOLUME_UPDATE", update, null);
+        }
+
+        @Override
+        public void setMuted(boolean m) {
+            JSONObject update = new JSONObject();
+            try {
+                update.put("level", this.level);
+                update.put("muted", m);
+            } catch (Exception ignored) {}
+            lobby.request("LobbyCtl.VOLUME_UPDATE", update, null);
+        }
     }
 }

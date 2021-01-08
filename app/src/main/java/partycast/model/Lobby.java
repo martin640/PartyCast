@@ -24,6 +24,8 @@ public interface Lobby {
 
     LibraryProvider getLibrary();
 
+    VolumeControl getVolumeControl();
+
     int getPlayerState();
 
     int getConnectionState();

@@ -24,29 +24,24 @@ import java.util.List;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import butterknife.Unbinder;
-import sk.martin64.partycast.R;
 import partycast.model.Lobby;
 import partycast.model.LobbyEventListener;
 import partycast.model.Queue;
 import partycast.model.QueueLooper;
 import partycast.model.RemoteMedia;
+import sk.martin64.partycast.R;
 import sk.martin64.partycast.utils.LobbyCoordinatorService;
 
 public class QueueFragment extends Fragment implements LobbyEventListener {
 
-    @BindView(R.id.clients)
-    RecyclerView clients;
-
-    private Unbinder unbinder;
+    private RecyclerView clients;
     private Lobby lobby;
     private QueueAdapter adapter;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
-        View root = inflater.inflate(R.layout.fragment_home, container, false);
-        unbinder = ButterKnife.bind(this, root);
+        clients = (RecyclerView) inflater.inflate(R.layout.fragment_home, container, false);
 
         lobby = LobbyCoordinatorService.getInstance().getActiveLobby();
         lobby.addEventListener(this);
@@ -56,7 +51,7 @@ public class QueueFragment extends Fragment implements LobbyEventListener {
         clients.setItemAnimator(new DefaultItemAnimator());
         clients.setAdapter(adapter);
 
-        return root;
+        return clients;
     }
 
     @Override
@@ -69,12 +64,6 @@ public class QueueFragment extends Fragment implements LobbyEventListener {
     public void onLooperUpdated(Lobby lobby, QueueLooper looper) {
         new Handler(Looper.getMainLooper()).post(() ->
                 adapter.notifyDataSetChanged());
-    }
-
-    @Override
-    public void onDestroy() {
-        if (unbinder != null) unbinder.unbind();
-        super.onDestroy();
     }
 
     public class QueueAdapter extends RecyclerView.Adapter<QueueAdapter.ViewHolder> {

@@ -20,6 +20,7 @@ import partycast.model.Lobby;
 import partycast.model.LobbyEventListener;
 import partycast.model.LobbyMember;
 import partycast.model.QueueLooper;
+import partycast.model.VolumeControl;
 import sk.martin64.partycast.ClientLobbyService;
 import sk.martin64.partycast.ServerLobbyService;
 
@@ -259,7 +260,6 @@ public class LobbyCoordinatorService implements LobbyEventListener {
     }
 
     private static class AbstractHeadLobby implements Lobby {
-
         private String title;
         private List<LobbyMember> members;
         private LobbyMember host;
@@ -319,6 +319,11 @@ public class LobbyCoordinatorService implements LobbyEventListener {
         @Override
         public int getConnectionState() {
             return Lobby.STATE_CLOSED;
+        }
+
+        @Override
+        public VolumeControl getVolumeControl() {
+            return null;
         }
     }
 }

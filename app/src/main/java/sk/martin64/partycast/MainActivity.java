@@ -1,32 +1,30 @@
 package sk.martin64.partycast;
 
-import android.content.ActivityNotFoundException;
 import android.content.Intent;
-import android.media.audiofx.AudioEffect;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
-import androidx.navigation.NavController;
-import androidx.navigation.Navigation;
-import androidx.navigation.ui.AppBarConfiguration;
-import androidx.navigation.ui.NavigationUI;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentPagerAdapter;
+import androidx.viewpager.widget.ViewPager;
 
 import com.bumptech.glide.Glide;
-import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.slider.Slider;
+import com.google.android.material.tabs.TabLayout;
 import com.mikhaellopez.circularprogressbar.CircularProgressBar;
-import com.sothree.slidinguppanel.SlidingUpPanelLayout;
 
 import java.util.concurrent.Executors;
 
@@ -36,8 +34,12 @@ import partycast.model.Lobby;
 import partycast.model.LobbyEventListener;
 import partycast.model.LobbyMember;
 import partycast.model.RemoteMedia;
-import sk.martin64.partycast.androidserver.AndroidServerLobby;
+import partycast.model.VolumeControl;
 import sk.martin64.partycast.ui.UiHelper;
+import sk.martin64.partycast.ui.main.HomeFragment;
+import sk.martin64.partycast.ui.main.LibraryFragment;
+import sk.martin64.partycast.ui.main.QueueFragment;
+import sk.martin64.partycast.ui.main.SettingsFragment;
 import sk.martin64.partycast.utils.Callback;
 import sk.martin64.partycast.utils.LobbyCoordinatorService;
 
@@ -45,14 +47,12 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
 
     @BindView(R.id.toolbar)
     Toolbar toolbar;
-    @BindView(R.id.nav_view)
-    BottomNavigationView navView;
 
     LobbyCoordinatorService coordinatorService;
-    @BindView(R.id.swipe_bar)
-    ViewGroup swipeBar;
-    @BindView(R.id.sliding_layout)
-    SlidingUpPanelLayout slidingLayout;
+    @BindView(R.id.viewPager)
+    ViewPager viewPager;
+    @BindView(R.id.tabLayout)
+    TabLayout tabLayout;
     @BindView(R.id.tv_title)
     TextView tvTitle;
     @BindView(R.id.tv_artist)
@@ -68,25 +68,17 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
     @BindView(R.id.iv_artwork)
     ImageView ivArtwork;
 
-    @BindView(R.id.ib_control_large)
-    ImageButton ibControlLarge;
-    @BindView(R.id.ib_equalizer_large)
-    ImageButton ibEqualizerLarge;
-    @BindView(R.id.ib_skip_large)
-    ImageButton ibSkipLarge;
-    @BindView(R.id.control_progress)
-    ProgressBar controlProgress;
+    @BindView(R.id.bottom_bar)
+    FrameLayout bottomBar;
     @BindView(R.id.control_progress_left)
     TextView controlProgressLeft;
     @BindView(R.id.control_progress_right)
     TextView controlProgressRight;
-    @BindView(R.id.divider2)
-    View divider2;
+    @BindView(R.id.control_volume)
+    Slider controlVolume;
 
-    private int navViewMeasuredHeight = 0;
+    private int dp45;
     private Lobby lobby;
-
-    private int dp45, dp16, dpControlsOffset;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -96,62 +88,23 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
         setSupportActionBar(toolbar);
 
         dp45 = (int) UiHelper.convertDpToPixel(45, this);
-        dp16 = (int) UiHelper.convertDpToPixel(16, this);
-        dpControlsOffset = (int) -UiHelper.convertDpToPixel(78, this);
-
-        slidingLayout.post(() -> {
-            navViewMeasuredHeight = navView.getMeasuredHeight();
-            slidingLayout.setPanelHeight(swipeBar.getMeasuredHeight() + navViewMeasuredHeight);
-        });
-        slidingLayout.addPanelSlideListener(new SlidingUpPanelLayout.PanelSlideListener() {
-            @Override
-            public void onPanelSlide(View panel, float slideOffset) {
-                slideOffset = Math.max(slideOffset, 0);
-
-                float navViewTranslation = (slideOffset / 0.5f) * navViewMeasuredHeight;
-                navView.setTranslationY(navViewTranslation);
-                divider2.setTranslationY(navViewTranslation);
-
-                ViewGroup.LayoutParams ivArtworkParams = ivArtwork.getLayoutParams();
-                ivArtworkParams.width = ivArtworkParams.height = (int) (dp45 + (slideOffset * dp45));
-                ivArtwork.requestLayout();
-
-                swipeBar.setPadding(0, (int) (slideOffset * dp16), 0, 0);
-
-                ViewGroup.MarginLayoutParams ibSkipParams = (ViewGroup.MarginLayoutParams) ibSkip.getLayoutParams();
-                ibSkipParams.rightMargin = (int) (slideOffset * dpControlsOffset) + 4;
-                ibSkip.requestLayout();
-
-                tvTitle.setMaxLines(slideOffset == 1 ? 2 : 1);
-            }
-
-            @Override
-            public void onPanelStateChanged(View panel, SlidingUpPanelLayout.PanelState previousState, SlidingUpPanelLayout.PanelState newState) {
-            }
-        });
 
         coordinatorService = LobbyCoordinatorService.getInstance();
 
-        AppBarConfiguration appBarConfiguration = new AppBarConfiguration.Builder(
-                R.id.navigation_home, R.id.navigation_queue, R.id.navigation_library, R.id.navigation_settings)
-                .build();
-        NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment);
-        NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
-        NavigationUI.setupWithNavController(navView, navController);
-
         lobby = coordinatorService.getActiveLobby();
         lobby.addEventListener(this);
-        slidingLayout.post(this::updateMiniPlayer);
+
+        viewPager.setAdapter(new DefaultViewPagerAdapter(getSupportFragmentManager()));
+        tabLayout.setupWithViewPager(viewPager);
+        bottomBar.post(this::updateMiniPlayer);
 
         circularProgressBar.setProgressMax(1);
-        controlProgress.setMax(1);
         Executors.newSingleThreadExecutor().submit(() -> {
             while (!isDestroyed()) {
                 Lobby lobbyCopy = lobby;
                 if (lobbyCopy.getPlayerState() == Lobby.PLAYBACK_READY) {
                     runOnUiThread(() -> {
                         circularProgressBar.setProgress(0);
-                        controlProgress.setProgress(0);
                     });
                 } else {
                     RemoteMedia nowPlaying = lobby.getLooper().getCurrentQueue().getCurrentlyPlaying();
@@ -159,8 +112,6 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
                         long progressReal = nowPlaying.getProgressReal();
                         runOnUiThread(() -> {
                             circularProgressBar.setProgress(nowPlaying.getProgress());
-                            controlProgress.setMax((int) (nowPlaying.getDuration() / 1000));
-                            controlProgress.setProgress((int) (progressReal / 1000));
                             controlProgressLeft.setText(UiHelper.timeFormat(progressReal));
                             controlProgressRight.setText(UiHelper.timeFormat(nowPlaying.getDuration()));
                         });
@@ -175,46 +126,27 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
             }
         });
 
+        controlVolume.addOnChangeListener((slider, value, fromUser) -> {
+            if (fromUser) {
+                VolumeControl volumeControl = lobby.getVolumeControl();
+                if (volumeControl != null) volumeControl.setLevel(value / 100f);
+            }
+        });
+        controlVolume.setLabelFormatter(value -> Math.round(value) + "%");
+
         coordinatorService.registerDisconnectHandler(lobbyCoordinatorService -> {
             if (active) {
                 startActivity(new Intent(this, ConnectActivity.class));
                 finish();
             }
         });
-
-        ibEqualizerLarge.setOnClickListener((v) -> {
-            if (lobby instanceof AndroidServerLobby) {
-                AndroidServerLobby androidServerLobby = (AndroidServerLobby) lobby;
-                int sessionId = androidServerLobby.getMediaSessionId();
-
-                if (sessionId == AudioEffect.ERROR_BAD_VALUE) {
-                    Toast.makeText(this, "Session ID is not available. Make sure playback has started.", Toast.LENGTH_SHORT).show();
-                } else {
-                    System.err.format("SESSION ID: %s\n", sessionId);
-                    try {
-                        final Intent effects = new Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL);
-                        effects.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, sessionId);
-                        effects.putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC);
-                        startActivityForResult(effects, 0);
-                    } catch (ActivityNotFoundException notFound) {
-                        Toast.makeText(this, "Your system doesn't have built-in equalizer", Toast.LENGTH_SHORT).show();
-                    }
-                }
-            } else {
-                Toast.makeText(this, "Equalizer is not available for current session", Toast.LENGTH_SHORT).show();
-            }
-        });
     }
 
     private void updateMiniPlayer() {
         if (lobby.getPlayerState() == Lobby.PLAYBACK_READY) {
-            tvTitle.setVisibility(View.GONE);
-            tvArtist.setVisibility(View.GONE);
-            tvRequestedBy.setVisibility(View.GONE);
-
-            if (slidingLayout.getPanelState() != SlidingUpPanelLayout.PanelState.HIDDEN) {
-                slidingLayout.setPanelState(SlidingUpPanelLayout.PanelState.HIDDEN);
-            }
+            tvTitle.setVisibility(View.INVISIBLE);
+            tvArtist.setVisibility(View.INVISIBLE);
+            tvRequestedBy.setVisibility(View.INVISIBLE);
         } else {
             RemoteMedia nowPlaying = lobby.getLooper().getNowPlaying();
             if (nowPlaying == null) {
@@ -236,33 +168,25 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
             tvTitle.setVisibility(View.VISIBLE);
             tvArtist.setVisibility(View.VISIBLE);
             tvRequestedBy.setVisibility(View.VISIBLE);
-
-            if (slidingLayout.getPanelState() == SlidingUpPanelLayout.PanelState.HIDDEN) {
-                slidingLayout.setPanelState(SlidingUpPanelLayout.PanelState.COLLAPSED);
-            }
         }
 
         boolean hasPermissions = Lobby.checkPermission(lobby.getClient(), LobbyMember.PERMISSION_MANAGE_QUEUE);
         ibControl.setEnabled(hasPermissions);
         ibSkip.setEnabled(hasPermissions);
-        ibControlLarge.setEnabled(hasPermissions);
-        ibSkipLarge.setEnabled(hasPermissions);
+        controlVolume.setEnabled(hasPermissions);
+
+        VolumeControl volumeControl = lobby.getVolumeControl();
+        float level = volumeControl.getLevel() * 100f;
+        controlVolume.setValue(5 * (Math.round(level / 5)));
 
         ibSkip.setOnClickListener(v -> lobby.getLooper().skip(null));
-        ibSkipLarge.setOnClickListener(v -> lobby.getLooper().skip(null));
 
         if (lobby.getPlayerState() == Lobby.PLAYBACK_PLAYING) {
             ibControl.setOnClickListener((v) -> lobby.getLooper().pause(null));
             ibControl.setImageResource(R.drawable.ic_round_pause_24);
-
-            ibControlLarge.setOnClickListener((v) -> lobby.getLooper().pause(null));
-            ibControlLarge.setImageResource(R.drawable.ic_round_pause_24);
         } else {
             ibControl.setOnClickListener((v) -> lobby.getLooper().play(null));
             ibControl.setImageResource(R.drawable.ic_round_play_arrow_24);
-
-            ibControlLarge.setOnClickListener((v) -> lobby.getLooper().play(null));
-            ibControlLarge.setImageResource(R.drawable.ic_round_play_arrow_24);
         }
     }
 
@@ -320,5 +244,42 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
                 return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private static class DefaultViewPagerAdapter extends FragmentPagerAdapter {
+        public DefaultViewPagerAdapter(FragmentManager fm) {
+            super(fm, BEHAVIOR_RESUME_ONLY_CURRENT_FRAGMENT);
+        }
+        public DefaultViewPagerAdapter(@NonNull FragmentManager fm, int behavior) {
+            super(fm, behavior);
+        }
+
+        @Override
+        @NonNull
+        public Fragment getItem(int position) {
+            switch (position) {
+                case 1: return new LibraryFragment();
+                case 2: return new QueueFragment();
+                case 3: return new SettingsFragment();
+                case 0: default: return new HomeFragment();
+            }
+        }
+
+        @Nullable
+        @Override
+        public CharSequence getPageTitle(int position) {
+            switch (position) {
+                case 0: return "Members";
+                case 1: return "Library";
+                case 2: return "Queue";
+                case 3: return "Settings";
+                default: return super.getPageTitle(position);
+            }
+        }
+
+        @Override
+        public int getCount() {
+            return 4;
+        }
     }
 }

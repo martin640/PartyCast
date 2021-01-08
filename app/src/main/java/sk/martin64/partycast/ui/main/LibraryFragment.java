@@ -31,12 +31,11 @@ import java.util.concurrent.Executors;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import butterknife.Unbinder;
-import sk.martin64.partycast.R;
 import partycast.model.LibraryItem;
 import partycast.model.LibraryProvider;
 import partycast.model.Lobby;
 import partycast.model.LobbyEventListener;
+import sk.martin64.partycast.R;
 import sk.martin64.partycast.androidserver.LocalLibraryItem;
 import sk.martin64.partycast.ui.UiHelper;
 import sk.martin64.partycast.utils.Callback;
@@ -44,10 +43,7 @@ import sk.martin64.partycast.utils.LobbyCoordinatorService;
 
 public class LibraryFragment extends Fragment implements LobbyEventListener {
 
-    @BindView(R.id.clients)
-    RecyclerView clients;
-
-    private Unbinder unbinder;
+    private RecyclerView clients;
     private Lobby lobby;
     private LibraryAdapter adapter;
 
@@ -56,8 +52,7 @@ public class LibraryFragment extends Fragment implements LobbyEventListener {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
-        View root = inflater.inflate(R.layout.fragment_home, container, false);
-        unbinder = ButterKnife.bind(this, root);
+        clients = (RecyclerView) inflater.inflate(R.layout.fragment_home, container, false);
 
         lobby = LobbyCoordinatorService.getInstance().getActiveLobby();
         lobby.addEventListener(this);
@@ -69,7 +64,7 @@ public class LibraryFragment extends Fragment implements LobbyEventListener {
 
         Executors.newSingleThreadExecutor().submit(() -> onLibraryUpdated(lobby, lobby.getLibrary()));
 
-        return root;
+        return clients;
     }
 
     @Override
@@ -86,7 +81,6 @@ public class LibraryFragment extends Fragment implements LobbyEventListener {
     @Override
     public void onDestroy() {
         if (lobby != null) lobby.removeEventListener(this);
-        if (unbinder != null) unbinder.unbind();
         super.onDestroy();
     }
 

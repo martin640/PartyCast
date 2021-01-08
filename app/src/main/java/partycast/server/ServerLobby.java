@@ -29,6 +29,7 @@ import partycast.model.LobbyEventListener;
 import partycast.model.LobbyMember;
 import partycast.model.OperationRejectedException;
 import partycast.model.QueueLooper;
+import partycast.model.VolumeControl;
 import sk.martin64.partycast.utils.Callback;
 
 public class ServerLobby implements Lobby, JSONable {
@@ -518,6 +519,11 @@ public class ServerLobby implements Lobby, JSONable {
     @Override
     public LobbyMember getClient() {
         return selfMember;
+    }
+
+    @Override
+    public VolumeControl getVolumeControl() {
+        return null; // todo
     }
 
     @Override

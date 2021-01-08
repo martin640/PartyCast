@@ -22,7 +22,6 @@ import java.util.concurrent.Executors;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import butterknife.Unbinder;
 import partycast.model.Lobby;
 import partycast.model.LobbyEventListener;
 import partycast.model.LobbyMember;
@@ -32,10 +31,7 @@ import sk.martin64.partycast.utils.LobbyCoordinatorService;
 
 public class SettingsFragment extends Fragment implements LobbyEventListener {
 
-    @BindView(R.id.clients)
-    RecyclerView rv;
-
-    private Unbinder unbinder;
+    private RecyclerView rv;
     private Lobby lobby;
     private List<SettingsItem> settings;
     private SettingsAdapter adapter;
@@ -43,8 +39,7 @@ public class SettingsFragment extends Fragment implements LobbyEventListener {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
-        View root = inflater.inflate(R.layout.fragment_home, container, false);
-        unbinder = ButterKnife.bind(this, root);
+        rv = (RecyclerView) inflater.inflate(R.layout.fragment_home, container, false);
 
         lobby = LobbyCoordinatorService.getInstance().getActiveLobby();
         lobby.addEventListener(this);
@@ -90,7 +85,7 @@ public class SettingsFragment extends Fragment implements LobbyEventListener {
         rv.setItemAnimator(new DefaultItemAnimator());
         rv.setAdapter(adapter);
 
-        return root;
+        return rv;
     }
 
     @Override
@@ -104,7 +99,6 @@ public class SettingsFragment extends Fragment implements LobbyEventListener {
     @Override
     public void onDestroy() {
         if (lobby != null) lobby.removeEventListener(this);
-        if (unbinder != null) unbinder.unbind();
         super.onDestroy();
     }
 
