@@ -14,7 +14,7 @@ public class ClientRemoteMedia implements RemoteMedia {
     private String title, artist, artwork;
     private int id;
     private long length;
-    private ClientQueue queue;
+    private final ClientQueue queue;
 
     long lastKnownProgress, lastUpdate;
 
@@ -81,7 +81,7 @@ public class ClientRemoteMedia implements RemoteMedia {
 
     @Override
     public long getStartTime() {
-        return RemoteMedia.calculateStart(this);
+        return 0;
     }
 
     @Override

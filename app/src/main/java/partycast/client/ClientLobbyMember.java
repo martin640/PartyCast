@@ -8,10 +8,10 @@ import org.json.JSONObject;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
-import sk.martin64.partycast.R;
-import sk.martin64.partycast.utils.Callback;
 import partycast.model.Lobby;
 import partycast.model.LobbyMember;
+import sk.martin64.partycast.R;
+import sk.martin64.partycast.utils.Callback;
 
 public class ClientLobbyMember implements LobbyMember {
 
@@ -65,7 +65,7 @@ public class ClientLobbyMember implements LobbyMember {
                             if (callback != null) callback.onError(e);
                         }
                     });
-        } catch (JSONException e) { }
+        } catch (JSONException ignored) { }
     }
 
     @Override

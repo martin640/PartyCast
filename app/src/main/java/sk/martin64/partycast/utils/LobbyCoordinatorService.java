@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 
+import partycast.model.ActionBoardItem;
 import partycast.model.LibraryProvider;
 import partycast.model.Lobby;
 import partycast.model.LobbyEventListener;
@@ -325,5 +326,8 @@ public class LobbyCoordinatorService implements LobbyEventListener {
         public VolumeControl getVolumeControl() {
             return null;
         }
+
+        @Override
+        public List<ActionBoardItem> getBoard() { return null; }
     }
 }

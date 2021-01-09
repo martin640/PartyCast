@@ -18,6 +18,8 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 
+import partycast.$;
+import partycast.model.ActionBoardItem;
 import partycast.model.LibraryProvider;
 import partycast.model.Lobby;
 import partycast.model.LobbyEventListener;
@@ -39,6 +41,7 @@ public class ClientLobby implements Lobby {
     ClientQueueLooper looper;
     ClientRemoteLibraryProvider libraryProvider;
     ClientVolumeControl volumeControl;
+    List<ActionBoardItemImpl> actionBoard;
 
     List<LobbyEventListener> listeners;
 
@@ -62,6 +65,7 @@ public class ClientLobby implements Lobby {
         }
 
         this.volumeControl = new ClientVolumeControl(this);
+        this.actionBoard = new ArrayList<>();
 
         this.state = STATE_CONNECTING;
         this.socketClient = new WebSocketClient(uri) {
@@ -185,6 +189,14 @@ public class ClientLobby implements Lobby {
                     this.membersCache.add(m);
                 }
 
+                if (values.has("actionBoard")) {
+                    JSONArray boardArray = values.getJSONArray("actionBoard");
+                    for (int i = 0; i < boardArray.length(); i++) {
+                        ActionBoardItemImpl m = new ActionBoardItemImpl(this, boardArray.getJSONObject(i));
+                        this.actionBoard.add(m);
+                    }
+                }
+
                 this.looper = new ClientQueueLooper(values.getJSONObject("looper"), this);
                 this.libraryProvider = new ClientRemoteLibraryProvider(values.getJSONObject("library"), this);
                 this.volumeControl.update(values.getJSONObject("volumeState"));
@@ -243,6 +255,31 @@ public class ClientLobby implements Lobby {
                         this.looper.update(values.getJSONObject("looper"));
                         this.volumeControl.update(values.getJSONObject("volumeState"));
 
+                        if (values.has("actionBoard")) {
+                            JSONArray boardArray = messageData.getJSONArray("data");
+                            a: for (int i = 0; i < boardArray.length(); i++) {
+                                ActionBoardItemImpl m = new ActionBoardItemImpl(this, boardArray.getJSONObject(i));
+                                for (ActionBoardItemImpl m2 : this.actionBoard) {
+                                    if (m.getId() == m2.getId()) {
+                                        m2.update(boardArray.getJSONObject(i));
+                                        break a;
+                                    }
+                                }
+                                this.actionBoard.add(m);
+                            }
+                            // step 2: remove items not contained in payload
+                            b: for (ListIterator<ActionBoardItemImpl> it = actionBoard.listIterator(); it.hasNext(); ) {
+                                ActionBoardItemImpl m2 = it.next();
+                                for (int i = 0; i < boardArray.length(); i++) {
+                                    ActionBoardItemImpl m = new ActionBoardItemImpl(this, boardArray.getJSONObject(i));
+                                    if (m.getId() == m2.getId()) {
+                                        continue b;
+                                    }
+                                }
+                                it.remove();
+                            }
+                        }
+
                         for (LobbyEventListener l : listeners)
                             l.onLobbyStateChanged(this);
                     } catch (JSONException e) {
@@ -263,7 +300,40 @@ public class ClientLobby implements Lobby {
             case "Event.VOLUME_UPDATED":
                 this.volumeControl.update(messageData);
                 for (LobbyEventListener l : listeners)
-                    l.onLibraryUpdated(this, this.libraryProvider);
+                    l.onLobbyStateChanged(this);
+                break;
+            case "Event.BOARD_UPDATED":
+
+                try {
+                    // step 1: and or update items from payload
+                    JSONArray boardArray = messageData.getJSONArray("data");
+                    a: for (int i = 0; i < boardArray.length(); i++) {
+                        ActionBoardItemImpl m = new ActionBoardItemImpl(this, boardArray.getJSONObject(i));
+                        for (ActionBoardItemImpl m2 : this.actionBoard) {
+                            if (m.getId() == m2.getId()) {
+                                m2.update(boardArray.getJSONObject(i));
+                                continue a;
+                            }
+                        }
+                        this.actionBoard.add(m);
+                    }
+                    // step 2: remove items not contained in payload
+                    b: for (ListIterator<ActionBoardItemImpl> it = actionBoard.listIterator(); it.hasNext(); ) {
+                        ActionBoardItemImpl m2 = it.next();
+                        for (int i = 0; i < boardArray.length(); i++) {
+                            ActionBoardItemImpl m = new ActionBoardItemImpl(this, boardArray.getJSONObject(i));
+                            if (m.getId() == m2.getId()) {
+                                continue b;
+                            }
+                        }
+                        it.remove();
+                    }
+
+                    for (LobbyEventListener l : listeners)
+                        l.onLobbyStateChanged(this);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
                 break;
         }
     }
@@ -343,8 +413,13 @@ public class ClientLobby implements Lobby {
         return this.volumeControl;
     }
 
+    @Override
+    public List<ActionBoardItem> getBoard() {
+        return Collections.unmodifiableList(actionBoard);
+    }
+
     private static class ClientVolumeControl implements VolumeControl {
-        private ClientLobby lobby;
+        private final ClientLobby lobby;
         private float level;
         private boolean muted;
 
@@ -353,6 +428,7 @@ public class ClientLobby implements Lobby {
         }
 
         private void update(JSONObject o) {
+            if ($.assertObject(o, "Failed to update ClientVolumeControl because supplied data is null")) return;
             this.level = (float) o.optDouble("level");
             this.muted = o.optBoolean("muted");
         }

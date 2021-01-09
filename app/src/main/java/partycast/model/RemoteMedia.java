@@ -24,13 +24,14 @@ public interface RemoteMedia {
     int getId();
 
     /**
-     * @return duration of audio/video in milliseconds
+     * @return duration of media in milliseconds
      */
     long getDuration();
 
     /**
-     * @return (in milliseconds) start of playback if playing/played,
-     * otherwise approximate start time is calculated (or 0 if playback is paused/stopped)
+     * @return (in milliseconds) if media is currently playing or has been already played,
+     *         implementation should return actual time,
+     *         otherwise call static {{@link #calculateApproximateFutureStart(RemoteMedia)}}
      */
     long getStartTime();
 
@@ -53,9 +54,10 @@ public interface RemoteMedia {
         else return r.getName();
     }
 
-    static long calculateStart(RemoteMedia media) {
+    static long calculateApproximateFutureStart(RemoteMedia media) {
         QueueLooper looper = media.getQueue().getLooper();
         Lobby lobby = looper.getContext();
+
         if (lobby.getPlayerState() == Lobby.PLAYBACK_PLAYING) {
             long progress = media.getProgressReal();
 

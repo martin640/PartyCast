@@ -26,6 +26,8 @@ public interface Lobby {
 
     VolumeControl getVolumeControl();
 
+    List<ActionBoardItem> getBoard();
+
     int getPlayerState();
 
     int getConnectionState();

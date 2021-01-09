@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import partycast.model.ActionBoardItem;
 import partycast.model.LibraryItem;
 import partycast.model.LibraryProvider;
 import partycast.model.Lobby;
@@ -524,6 +525,11 @@ public class ServerLobby implements Lobby, JSONable {
     @Override
     public VolumeControl getVolumeControl() {
         return null; // todo
+    }
+
+    @Override
+    public List<ActionBoardItem> getBoard() {
+        return Collections.emptyList();
     }
 
     @Override

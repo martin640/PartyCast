@@ -3,6 +3,7 @@ package sk.martin64.partycast;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -36,10 +37,10 @@ import partycast.model.LobbyMember;
 import partycast.model.RemoteMedia;
 import partycast.model.VolumeControl;
 import sk.martin64.partycast.ui.UiHelper;
+import sk.martin64.partycast.ui.main.BoardFragment;
 import sk.martin64.partycast.ui.main.HomeFragment;
 import sk.martin64.partycast.ui.main.LibraryFragment;
 import sk.martin64.partycast.ui.main.QueueFragment;
-import sk.martin64.partycast.ui.main.SettingsFragment;
 import sk.martin64.partycast.utils.Callback;
 import sk.martin64.partycast.utils.LobbyCoordinatorService;
 
@@ -201,6 +202,24 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
     }
 
     @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        VolumeControl volumeControl = lobby.getVolumeControl();
+        if (volumeControl != null) {
+            if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+                volumeControl.setLevel(Math.max(volumeControl.getLevel() - 0.05f, 0f));
+                return true;
+            } else if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+                volumeControl.setLevel(Math.min(volumeControl.getLevel() + 0.05f, 1f));
+                return true;
+            } else if (keyCode == KeyEvent.KEYCODE_VOLUME_MUTE) {
+                volumeControl.setLevel(0f);
+                return true;
+            }
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.main, menu);
         return super.onCreateOptionsMenu(menu);
@@ -258,10 +277,10 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
         @NonNull
         public Fragment getItem(int position) {
             switch (position) {
-                case 1: return new LibraryFragment();
-                case 2: return new QueueFragment();
-                case 3: return new SettingsFragment();
-                case 0: default: return new HomeFragment();
+                case 1: return new HomeFragment();
+                case 2: return new LibraryFragment();
+                case 3: return new QueueFragment();
+                case 0: default: return new BoardFragment();
             }
         }
 
@@ -269,10 +288,10 @@ public class MainActivity extends AppCompatActivity implements LobbyEventListene
         @Override
         public CharSequence getPageTitle(int position) {
             switch (position) {
-                case 0: return "Members";
-                case 1: return "Library";
-                case 2: return "Queue";
-                case 3: return "Settings";
+                case 0: return "Board";
+                case 1: return "Members";
+                case 2: return "Library";
+                case 3: return "Queue";
                 default: return super.getPageTitle(position);
             }
         }

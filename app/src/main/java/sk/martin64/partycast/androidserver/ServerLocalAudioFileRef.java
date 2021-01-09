@@ -70,7 +70,7 @@ public class ServerLocalAudioFileRef implements RemoteMedia, JSONable {
 
     @Override
     public long getStartTime() {
-        return RemoteMedia.calculateStart(this);
+        return RemoteMedia.calculateApproximateFutureStart(this);
     }
 
     @Override
