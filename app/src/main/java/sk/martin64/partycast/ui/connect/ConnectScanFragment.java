@@ -101,6 +101,7 @@ public class ConnectScanFragment extends Fragment {
                 }
             });
         });
+        fab.callOnClick();
 
         return v;
     }

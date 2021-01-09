@@ -256,7 +256,7 @@ public class ClientLobby implements Lobby {
                         this.volumeControl.update(values.getJSONObject("volumeState"));
 
                         if (values.has("actionBoard")) {
-                            JSONArray boardArray = messageData.getJSONArray("data");
+                            JSONArray boardArray = values.getJSONArray("actionBoard");
                             a: for (int i = 0; i < boardArray.length(); i++) {
                                 ActionBoardItemImpl m = new ActionBoardItemImpl(this, boardArray.getJSONObject(i));
                                 for (ActionBoardItemImpl m2 : this.actionBoard) {
